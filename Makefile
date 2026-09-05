@@ -10,5 +10,8 @@ all: $(EE_BIN)
 clean:
 	rm -f $(EE_OBJS) $(EE_BIN)
 
-include $(PS2SDK)/Defs.make
-include $(PS2SDK)/rules/Makefile.eecomp
+# Inclui os arquivos de configuracao oficiais da PS2SDK moderna
+-include $(PS2SDK)/samples/Makefile.pref
+-include $(PS2SDK)/samples/Makefile.eecomp
+-include $(PS2SDK)/Defs.make
+-include $(PS2SDK)/rules/Makefile.eecomp
