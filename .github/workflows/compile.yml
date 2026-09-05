@@ -18,7 +18,7 @@ jobs:
           image: ps2dev/ps2dev:latest
           options: -v ${{ github.workspace }}:/src -w /src
           run: |
-            apk add --no-cache make || apt-get update && apt-get install -y make
+            apk add --no-cache make gcc musl-dev
             export PS2DEV=/usr/local/ps2dev
             export PS2SDK=$PS2DEV/ps2sdk
             export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2SDK/bin
