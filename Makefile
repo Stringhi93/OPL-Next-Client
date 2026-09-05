@@ -11,11 +11,11 @@ EE_LIBS = -ldebug -lps2ip -lkernel -lsifrpc
 
 all: $(EE_BIN)
 
-%.o: %.c
-	$(EE_CC) $(EE_CFLAGS) -c $< -o $@
+src/main.o: src/main.c
+	$(EE_CC) $(EE_CFLAGS) -c src/main.c -o src/main.o
 
 $(EE_BIN): $(EE_OBJS)
 	$(EE_CC) $(EE_CFLAGS) $(EE_LDFLAGS) -o $(EE_BIN) $(EE_OBJS) $(EE_LIBS)
 
 clean:
-	rm -f $(EE_OBJS) $(EE_BIN)
+	rm -f src/main.o $(EE_BIN)
