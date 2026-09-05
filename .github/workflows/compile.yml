@@ -8,17 +8,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: ps2dev/ps2dev:latest
     steps:
       - name: Baixar Codigo
         uses: actions/checkout@v4
 
-      - name: Compilar ELF para PS2 usando PS2SDK
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ps2dev/ps2dev:latest
-          options: -v ${{ github.workspace }}:/src -w /src
-          run: |
-            make
+      - name: Compilar ELF
+        run: |
+          make
 
       - name: Salvar o Arquivo .ELF
         uses: actions/upload-artifact@v4
