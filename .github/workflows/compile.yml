@@ -11,14 +11,13 @@ jobs:
     container:
       image: ps2dev/ps2dev:latest
     steps:
-      - name: Baixar Codigo
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Compilar ELF
-        run: |
-          make
+      - name: Build ELF File
+        run: make
 
-      - name: Salvar o Arquivo .ELF
+      - name: Upload ELF Artifact
         uses: actions/upload-artifact@v4
         with:
           name: OPL_NEXT_BETA_ELF
