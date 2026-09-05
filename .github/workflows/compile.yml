@@ -3,13 +3,14 @@ name: Compilar OPL Next ELF
 on:
   push:
     branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Baixar Codigo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Compilar ELF para PS2 usando PS2SDK
         uses: addnab/docker-run-action@v3
@@ -20,7 +21,7 @@ jobs:
             make
 
       - name: Salvar o Arquivo .ELF
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: OPL_NEXT_BETA_ELF
           path: OPL_NEXT_BETA.ELF
