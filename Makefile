@@ -15,3 +15,4 @@ clean:
 -include $(PS2SDK)/samples/Makefile.eecomp
 -include $(PS2SDK)/Defs.make
 -include $(PS2SDK)/rules/Makefile.eecomp
+ 
