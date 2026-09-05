@@ -21,7 +21,12 @@ jobs:
             export PS2DEV=/usr/local/ps2dev
             export PS2SDK=$PS2DEV/ps2sdk
             export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2SDK/bin
-            make
+            
+            ee-gcc -I$PS2SDK/ee/include -I$PS2SDK/common/include -O2 -G0 -Wall \
+                   -L$PS2SDK/ee/lib \
+                   src/main.c \
+                   -ldebug -lps2ip -lkernel -lsifrpc \
+                   -o OPL_NEXT_BETA.ELF
 
       - name: Upload ELF Artifact
         uses: actions/upload-artifact@v4
