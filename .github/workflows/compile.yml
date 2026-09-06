@@ -21,45 +21,97 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Verificar ambiente PS2DEV
+      - name: Preparar ambiente PS2DEV
+        shell: sh
         run: |
           echo "========================================"
-          echo "PS2DEV ENVIRONMENT"
+          echo "PREPARANDO AMBIENTE PS2DEV"
           echo "========================================"
 
+          echo "Instalando ferramentas de compilacao..."
+          apk add --no-cache build-base
+
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export GSKIT=$PS2DEV/gsKit
+
+          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
+
+          echo ""
           echo "PS2DEV=$PS2DEV"
           echo "PS2SDK=$PS2SDK"
+          echo "GSKIT=$GSKIT"
+
+          echo ""
           echo "PATH=$PATH"
 
           echo ""
-          echo "Make:"
+          echo "========================================"
+          echo "VERIFICANDO MAKE"
+          echo "========================================"
+
           command -v make
           make --version
 
           echo ""
-          echo "PS2 compiler:"
+          echo "========================================"
+          echo "VERIFICANDO COMPILADOR PS2"
+          echo "========================================"
+
           command -v mips64r5900el-ps2-elf-gcc
           mips64r5900el-ps2-elf-gcc --version
 
       - name: Build ELF
+        shell: sh
         run: |
           echo "========================================"
           echo "BUILDING OPL NEXT"
           echo "========================================"
 
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export GSKIT=$PS2DEV/gsKit
+
+          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
+
+          echo ""
+          echo "PS2DEV=$PS2DEV"
+          echo "PS2SDK=$PS2SDK"
+
+          echo ""
+          echo "Make:"
+          command -v make
+
+          echo ""
+          echo "Compilador:"
+          command -v mips64r5900el-ps2-elf-gcc
+
+          echo ""
+          echo "Limpando build anterior..."
           make clean
+
+          echo ""
+          echo "Iniciando compilacao..."
           make
 
       - name: Verify ELF
+        shell: sh
         run: |
           echo "========================================"
-          echo "VERIFY ELF"
+          echo "VERIFICANDO ELF"
           echo "========================================"
 
-          test -f OPL_NEXT_BETA.ELF
+          if [ ! -f OPL_NEXT_BETA.ELF ]; then
+            echo "ERRO: OPL_NEXT_BETA.ELF nao foi gerado!"
+            exit 1
+          fi
 
+          echo ""
+          echo "ELF encontrado com sucesso:"
           ls -lh OPL_NEXT_BETA.ELF
 
+          echo ""
+          echo "Informacoes do arquivo:"
           file OPL_NEXT_BETA.ELF
 
       - name: Upload ELF Artifact
@@ -67,3 +119,4 @@ jobs:
         with:
           name: OPL_NEXT_BETA_ELF
           path: OPL_NEXT_BETA.ELF
+          if-no-files-found: error
