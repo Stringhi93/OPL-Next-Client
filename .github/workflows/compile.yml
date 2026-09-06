@@ -25,6 +25,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Instalar ferramentas
+        shell: sh
+        run: |
+          echo "========================================"
+          echo "INSTALANDO FERRAMENTAS"
+          echo "========================================"
+
+          apk add --no-cache make
+
+          echo ""
+          echo "Make instalado:"
+          command -v make
+          make --version
+
       - name: Preparar ambiente PS2DEV
         shell: sh
         run: |
@@ -43,55 +57,12 @@ jobs:
           echo "GSKIT=$GSKIT"
 
           echo ""
-          echo "PATH:"
-          echo "$PATH"
-
-          echo ""
-          echo "========================================"
-          echo "VERIFICANDO MAKE"
-          echo "========================================"
-
-          command -v make || true
-          ls -l /usr/bin/make 2>/dev/null || true
-          ls -l /usr/local/bin/make 2>/dev/null || true
-
-          echo ""
-          echo "========================================"
-          echo "VERIFICANDO COMPILADOR PS2"
-          echo "========================================"
-
+          echo "Compilador:"
           command -v mips64r5900el-ps2-elf-gcc
 
-          mips64r5900el-ps2-elf-gcc --version
-
-      - name: Verificar ferramentas
-        shell: sh
-        run: |
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
-          export GSKIT=$PS2DEV/gsKit
-
-          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
-
-          echo "========================================"
-          echo "FERRAMENTAS"
-          echo "========================================"
-
-          if ! command -v make >/dev/null 2>&1; then
-            echo "ERRO: make nao encontrado no container."
-            echo ""
-            echo "Conteudo de /usr/bin:"
-            ls -la /usr/bin | head -50
-            exit 1
-          fi
-
-          echo "MAKE:"
+          echo ""
+          echo "Make:"
           command -v make
-          make --version
-
-          echo ""
-          echo "GCC PS2:"
-          command -v mips64r5900el-ps2-elf-gcc
 
       - name: Limpar
         shell: sh
@@ -103,7 +74,7 @@ jobs:
           export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
 
           echo "========================================"
-          echo "LIMPANDO"
+          echo "LIMPANDO BUILD"
           echo "========================================"
 
           make clean || true
