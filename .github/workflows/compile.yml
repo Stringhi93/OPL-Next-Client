@@ -8,6 +8,9 @@ on:
 
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build PS2 ELF
@@ -31,6 +34,10 @@ jobs:
 
           export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
 
+          echo "========================================"
+          echo "AMBIENTE PS2DEV"
+          echo "========================================"
+
           echo "PS2DEV=$PS2DEV"
           echo "PS2SDK=$PS2SDK"
           echo "GSKIT=$GSKIT"
@@ -52,7 +59,9 @@ jobs:
 
           export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
 
-          make clean
+          echo "Limpando build anterior..."
+
+          make clean || true
 
       - name: Compilar
         shell: sh
@@ -61,22 +70,32 @@ jobs:
           export PS2SDK=$PS2DEV/ps2sdk
           export GSKIT=$PS2DEV/gsKit
 
-          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
+          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2SDK/bin:$PATH
+
+          echo "========================================"
+          echo "COMPILANDO OPL NEXT"
+          echo "========================================"
 
           make
 
       - name: Verificar ELF
         shell: sh
         run: |
+          echo "========================================"
+          echo "VERIFICANDO ELF"
+          echo "========================================"
+
           if [ ! -f OPL_NEXT_BETA.ELF ]; then
-            echo "ERRO: ELF nao encontrado!"
+            echo "ERRO: OPL_NEXT_BETA.ELF nao foi gerado!"
             exit 1
           fi
 
-          echo "ELF gerado:"
+          echo ""
+          echo "ELF gerado com sucesso:"
           ls -lh OPL_NEXT_BETA.ELF
 
           echo ""
+          echo "Tipo do arquivo:"
           file OPL_NEXT_BETA.ELF
 
       - name: Publicar ELF
