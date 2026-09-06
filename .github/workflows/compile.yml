@@ -1,11 +1,19 @@
-name: Procurar metodo IRX
+name: Build PS2 ELF
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  PS2DEV: /usr/local/ps2dev
+  PS2SDK: /usr/local/ps2dev/ps2sdk
+  GSKIT: /usr/local/ps2dev/gsKit
 
 jobs:
-  check:
-    name: Procurar exemplos IRX
+  build:
+    name: Build PS2 ELF
     runs-on: ubuntu-latest
 
     container:
@@ -15,50 +23,66 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Procurar exemplos
+      - name: Instalar Make
         shell: sh
         run: |
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
+          apk add --no-cache make
+
+      - name: Verificar ambiente PS2DEV
+        shell: sh
+        run: |
+          export PATH="$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH"
 
           echo "========================================"
-          echo "PROCURANDO SIFEXECCMODULEBUFFER"
+          echo "AMBIENTE PS2DEV"
           echo "========================================"
 
-          grep -R "SifExecModuleBuffer" \
-            "$PS2SDK/samples" \
-            "$PS2SDK" \
-            2>/dev/null | head -50 || true
-
-          echo ""
-          echo "========================================"
-          echo "PROCURANDO addbin"
-          echo "========================================"
-
-          find "$PS2DEV" \
-            -type f \
-            \( -iname '*addbin*' -o -iname '*bin2*' \) \
-            -print 2>/dev/null || true
+          echo "PS2DEV=$PS2DEV"
+          echo "PS2SDK=$PS2SDK"
 
           echo ""
-          echo "========================================"
-          echo "PROCURANDO EMBED"
-          echo "========================================"
-
-          grep -R -i "embedded.*irx\|irx.*embedded" \
-            "$PS2SDK/samples" \
-            2>/dev/null | head -50 || true
+          echo "GCC:"
+          command -v mips64r5900el-ps2-elf-gcc || true
 
           echo ""
-          echo "========================================"
-          echo "MAKEFILES COM IRX"
-          echo "========================================"
-
-          grep -R -l "\.irx" \
-            "$PS2SDK/samples" \
-            2>/dev/null | head -50 || true
+          echo "MAKE:"
+          command -v make || true
 
           echo ""
+          echo "BIN2C:"
+          command -v bin2c || true
+
+          echo ""
+          echo "IRX:"
+          ls -lh "$PS2SDK/iop/irx/ps2dev9.irx" || true
+          ls -lh "$PS2SDK/iop/irx/netman.irx" || true
+          ls -lh "$PS2SDK/iop/irx/smap.irx" || true
+
+      - name: Compilar OPL NEXT
+        shell: sh
+        run: |
+          export PATH="$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH"
+
           echo "========================================"
-          echo "FIM"
+          echo "COMPILANDO OPL NEXT"
           echo "========================================"
+
+          make clean
+          make
+
+      - name: Verificar ELF
+        shell: sh
+        run: |
+          echo "========================================"
+          echo "ELF GERADO"
+          echo "========================================"
+
+          ls -lh OPL_NEXT_BETA.ELF
+
+          file OPL_NEXT_BETA.ELF || true
+
+      - name: Publicar ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: OPL-NEXT-BETA
+          path: OPL_NEXT_BETA.ELF
