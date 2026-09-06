@@ -1,29 +1,48 @@
-name: Verificar PS2SDK Rede
+name: Compilar OPL Next
 
 on:
+  push:
+    branches:
+      - main
+      - master
+
   workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  check:
-    name: Verificar ambiente PS2
+  build:
+    name: Build PS2 ELF
+
     runs-on: ubuntu-latest
 
     container:
       image: ghcr.io/ps2dev/ps2dev:latest
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Instalar Make
+      - name: Instalar ferramentas
         shell: sh
         run: |
           apk add --no-cache make
 
-      - name: Verificar rede PS2SDK
+          echo "========================================"
+          echo "FERRAMENTAS"
+          echo "========================================"
+
+          echo "make:"
+          command -v make
+          make --version
+
+          echo ""
+          echo "bin2s:"
+          command -v bin2s || true
+
+      - name: Preparar ambiente PS2DEV
         shell: sh
         run: |
           export PS2DEV=/usr/local/ps2dev
@@ -33,47 +52,72 @@ jobs:
           export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
 
           echo "========================================"
-          echo "PS2SDK"
+          echo "AMBIENTE PS2DEV"
           echo "========================================"
 
           echo "PS2DEV=$PS2DEV"
           echo "PS2SDK=$PS2SDK"
+          echo "GSKIT=$GSKIT"
 
           echo ""
-          echo "NETMAN:"
-          find "$PS2DEV" -iname '*netman*' -print 2>/dev/null || true
+          echo "Compilador:"
+          command -v mips64r5900el-ps2-elf-gcc
 
           echo ""
-          echo "SMAP:"
-          find "$PS2DEV" -iname '*smap*' -print 2>/dev/null || true
+          echo "bin2s:"
+          command -v bin2s
 
-          echo ""
-          echo "PS2IP:"
-          find "$PS2DEV" -iname '*ps2ip*' -print 2>/dev/null || true
+      - name: Verificar arquivos de rede
+        shell: sh
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+
+          echo "========================================"
+          echo "ARQUIVOS DE REDE"
+          echo "========================================"
 
           echo ""
           echo "DEV9:"
-          find "$PS2DEV" -iname '*dev9*' -print 2>/dev/null || true
+          ls -lh "$PS2SDK/iop/irx/ps2dev9.irx"
 
           echo ""
-          echo "BIBLIOTECAS:"
-          find "$PS2DEV" \
-            \( -name 'libnetman.a' \
-            -o -name 'libps2ip.a' \
-            -o -name 'libsmap.a' \
-            -o -name 'libdev9.a' \) \
-            -print 2>/dev/null || true
+          echo "NETMAN:"
+          ls -lh "$PS2SDK/iop/irx/netman.irx"
 
           echo ""
-          echo "HEADERS:"
-          find "$PS2DEV" \
-            \( -name 'netman.h' \
-            -o -name 'ps2ip.h' \
-            -o -name 'smap.h' \
-            -o -name 'dev9.h' \) \
-            -print 2>/dev/null || true
+          echo "SMAP:"
+          ls -lh "$PS2SDK/iop/irx/smap.irx"
 
           echo ""
+          echo "PS2IP:"
+          ls -lh "$PS2SDK/iop/irx/ps2ip.irx"
+
+      - name: Limpar
+        shell: sh
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+
           echo "========================================"
-          echo "VERIFICACAO CONCLUIDA"
+          echo "LIMPANDO"
           echo "========================================"
+
+          make clean || true
+
+      - name: Compilar
+        shell: sh
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export GSKIT=$PS2DEV/gsKit
+
+          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2SDK/bin:$PATH
+
+          echo "========================================"
+          echo "COMPILANDO OPL NEXT"
+          echo "========================================"
+
+          make
+
+      - name: Verificar ELF
