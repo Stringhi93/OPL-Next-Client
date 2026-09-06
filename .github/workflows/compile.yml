@@ -1,114 +1,64 @@
-name: Compilar OPL Next
+name: Verificar ferramentas PS2SDK
 
 on:
-  push:
-    branches:
-      - main
-      - master
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build PS2 ELF
+  check:
+    name: Verificar ferramentas
     runs-on: ubuntu-latest
 
     container:
       image: ghcr.io/ps2dev/ps2dev:latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Preparar ambiente
+      - name: Verificar ambiente
         shell: sh
         run: |
-          apk add --no-cache make
-
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
-          export GSKIT=$PS2DEV/gsKit
 
           export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
 
           echo "========================================"
-          echo "AMBIENTE PS2DEV"
+          echo "FERRAMENTAS PS2SDK"
           echo "========================================"
-
-          echo "PS2DEV=$PS2DEV"
-          echo "PS2SDK=$PS2SDK"
-
-          echo ""
-          echo "Compilador:"
-          command -v mips64r5900el-ps2-elf-gcc
-
-          echo ""
-          echo "Make:"
-          command -v make
 
           echo ""
           echo "bin2s:"
-          command -v bin2s
-
-      - name: Verificar arquivos de rede
-        shell: sh
-        run: |
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
-
-          echo "========================================"
-          echo "ARQUIVOS DE REDE"
-          echo "========================================"
-
-          ls -lh "$PS2SDK/iop/irx/ps2dev9.irx"
-          ls -lh "$PS2SDK/iop/irx/netman.irx"
-          ls -lh "$PS2SDK/iop/irx/smap.irx"
-          ls -lh "$PS2SDK/iop/irx/ps2ip.irx"
-
-      - name: Limpar
-        shell: sh
-        run: |
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
-          export GSKIT=$PS2DEV/gsKit
-
-          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
-
-          make clean || true
-
-      - name: Compilar
-        shell: sh
-        run: |
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
-          export GSKIT=$PS2DEV/gsKit
-
-          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
-
-          echo "========================================"
-          echo "COMPILANDO OPL NEXT"
-          echo "========================================"
-
-          make
-
-      - name: Verificar ELF
-        shell: sh
-        run: |
-          echo "========================================"
-          echo "VERIFICANDO ELF"
-          echo "========================================"
-
-          if [ ! -f OPL_NEXT_BETA.ELF ]; then
-            echo "ERRO: ELF nao foi gerado!"
-            exit 1
-          fi
+          command -v bin2s || echo "NAO ENCONTRADO"
 
           echo ""
-          echo "ELF GERADO COM SUCESSO:"
-          ls -lh OPL_NEXT_BETA.ELF
+          echo "bin2obj:"
+          command -v bin2obj || echo "NAO ENCONTRADO"
 
-      - name: Publicar ELF
-        uses: actions/upload-artifact@v4
-        with:
-          name: OPL_NEXT_BETA_ELF
-          path: OPL_NEXT_BETA.ELF
-          if-no-files-found: error
+          echo ""
+          echo "elf2irx:"
+          command -v elf2irx || echo "NAO ENCONTRADO"
+
+          echo ""
+          echo "ps2-packer:"
+          command -v ps2-packer || echo "NAO ENCONTRADO"
+
+          echo ""
+          echo "tools:"
+          find "$PS2DEV" -type f -perm -111 \
+            \( -name 'bin2s' \
+            -o -name 'bin2obj' \
+            -o -name 'elf2irx' \
+            -o -name 'ps2-packer' \) \
+            -print 2>/dev/null || true
+
+          echo ""
+          echo "========================================"
+          echo "IRX DISPONIVEIS"
+          echo "========================================"
+
+          find "$PS2SDK/iop/irx" -maxdepth 1 -type f \
+            \( -name '*.irx' \) \
+            -print | sort
+
+          echo ""
+          echo "========================================"
+          echo "VERIFICACAO CONCLUIDA"
+          echo "========================================"
