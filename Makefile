@@ -5,18 +5,9 @@ EE_OBJS = \
 	src/ui.o \
 	src/input.o
 
-EE_INCS = \
-	-I$(GSKIT)/include
-
-EE_CFLAGS += $(EE_INCS)
-
 EE_LIBS = \
-	-L$(GSKIT)/lib \
 	-ldebug \
 	-lpad \
-	-lgskit_toolkit \
-	-lgskit \
-	-ldmakit \
 	-lc
 
 all: $(EE_BIN)
