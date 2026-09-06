@@ -1,45 +1,29 @@
-name: Compilar OPL Next ELF
+name: Verificar PS2SDK Rede
 
 on:
-  push:
-    branches:
-      - main
-      - master
-
   workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build:
-    name: Build PS2 ELF
-
+  check:
+    name: Verificar ambiente PS2
     runs-on: ubuntu-latest
 
     container:
       image: ghcr.io/ps2dev/ps2dev:latest
 
     steps:
-
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
-      - name: Instalar ferramentas
+      - name: Instalar Make
         shell: sh
         run: |
-          echo "========================================"
-          echo "INSTALANDO FERRAMENTAS"
-          echo "========================================"
-
           apk add --no-cache make
 
-          echo ""
-          echo "Make:"
-          command -v make
-          make --version
-
-      - name: Preparar ambiente PS2DEV
+      - name: Verificar rede PS2SDK
         shell: sh
         run: |
           export PS2DEV=/usr/local/ps2dev
@@ -49,100 +33,47 @@ jobs:
           export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
 
           echo "========================================"
-          echo "AMBIENTE PS2DEV"
+          echo "PS2SDK"
           echo "========================================"
 
           echo "PS2DEV=$PS2DEV"
           echo "PS2SDK=$PS2SDK"
-          echo "GSKIT=$GSKIT"
 
           echo ""
-          echo "Compilador:"
-          command -v mips64r5900el-ps2-elf-gcc
+          echo "NETMAN:"
+          find "$PS2DEV" -iname '*netman*' -print 2>/dev/null || true
 
           echo ""
-          echo "Make:"
-          command -v make
+          echo "SMAP:"
+          find "$PS2DEV" -iname '*smap*' -print 2>/dev/null || true
 
           echo ""
-          echo "========================================"
-          echo "VERIFICANDO GSKIT"
-          echo "========================================"
+          echo "PS2IP:"
+          find "$PS2DEV" -iname '*ps2ip*' -print 2>/dev/null || true
 
           echo ""
-          echo "Procurando gsKit.h:"
-          find "$PS2DEV" -type f -name "gsKit.h" -print 2>/dev/null || true
+          echo "DEV9:"
+          find "$PS2DEV" -iname '*dev9*' -print 2>/dev/null || true
 
           echo ""
-          echo "Procurando gsToolkit.h:"
-          find "$PS2DEV" -type f -name "gsToolkit.h" -print 2>/dev/null || true
-
-          echo ""
-          echo "Procurando dmaKit.h:"
-          find "$PS2DEV" -type f -name "dmaKit.h" -print 2>/dev/null || true
-
-          echo ""
-          echo "Procurando bibliotecas:"
-          find "$PS2DEV" -type f \
-            \( \
-              -name "libgskit.a" \
-              -o -name "libgskit_toolkit.a" \
-              -o -name "libdmakit.a" \
-            \) \
+          echo "BIBLIOTECAS:"
+          find "$PS2DEV" \
+            \( -name 'libnetman.a' \
+            -o -name 'libps2ip.a' \
+            -o -name 'libsmap.a' \
+            -o -name 'libdev9.a' \) \
             -print 2>/dev/null || true
 
-      - name: Limpar
-        shell: sh
-        run: |
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
-          export GSKIT=$PS2DEV/gsKit
-
-          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
-
-          echo "========================================"
-          echo "LIMPANDO BUILD"
-          echo "========================================"
-
-          make clean || true
-
-      - name: Compilar
-        shell: sh
-        run: |
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
-          export GSKIT=$PS2DEV/gsKit
-
-          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
-
-          echo "========================================"
-          echo "COMPILANDO OPL NEXT"
-          echo "========================================"
-
-          make
-
-      - name: Verificar ELF
-        shell: sh
-        run: |
-          echo "========================================"
-          echo "VERIFICANDO ELF"
-          echo "========================================"
-
-          if [ ! -f OPL_NEXT_BETA.ELF ]; then
-            echo "ERRO: OPL_NEXT_BETA.ELF nao foi gerado!"
-            exit 1
-          fi
+          echo ""
+          echo "HEADERS:"
+          find "$PS2DEV" \
+            \( -name 'netman.h' \
+            -o -name 'ps2ip.h' \
+            -o -name 'smap.h' \
+            -o -name 'dev9.h' \) \
+            -print 2>/dev/null || true
 
           echo ""
-          echo "ELF gerado com sucesso:"
-          ls -lh OPL_NEXT_BETA.ELF
-
-          echo ""
-          echo "Verificacao concluida."
-
-      - name: Publicar ELF
-        uses: actions/upload-artifact@v4
-        with:
-          name: OPL_NEXT_BETA_ELF
-          path: OPL_NEXT_BETA.ELF
-          if-no-files-found: error
+          echo "========================================"
+          echo "VERIFICACAO CONCLUIDA"
+          echo "========================================"
