@@ -35,7 +35,7 @@ jobs:
           apk add --no-cache make
 
           echo ""
-          echo "Make instalado:"
+          echo "Make:"
           command -v make
           make --version
 
@@ -111,8 +111,7 @@ jobs:
           ls -lh OPL_NEXT_BETA.ELF
 
           echo ""
-          echo "Tipo do arquivo:"
-          file OPL_NEXT_BETA.ELF
+          echo "Verificacao concluida."
 
       - name: Publicar ELF
         uses: actions/upload-artifact@v4
