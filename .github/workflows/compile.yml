@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+
   workflow_dispatch:
 
 jobs:
@@ -16,35 +17,49 @@ jobs:
       image: ghcr.io/ps2dev/ps2dev:latest
 
     steps:
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Preparar ambiente
+      - name: Verificar ambiente PS2DEV
         run: |
-          apk add --no-cache make
-          
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
-          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
+          echo "========================================"
+          echo "PS2DEV ENVIRONMENT"
+          echo "========================================"
 
           echo "PS2DEV=$PS2DEV"
           echo "PS2SDK=$PS2SDK"
+          echo "PATH=$PATH"
 
-          which make
-          which mips64r5900el-ps2-elf-gcc
+          echo ""
+          echo "Make:"
+          command -v make
+          make --version
+
+          echo ""
+          echo "PS2 compiler:"
+          command -v mips64r5900el-ps2-elf-gcc
+          mips64r5900el-ps2-elf-gcc --version
 
       - name: Build ELF
         run: |
-          export PS2DEV=/usr/local/ps2dev
-          export PS2SDK=$PS2DEV/ps2sdk
-          export PATH=$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
+          echo "========================================"
+          echo "BUILDING OPL NEXT"
+          echo "========================================"
 
           make clean
           make
 
-      - name: Verificar ELF
+      - name: Verify ELF
         run: |
+          echo "========================================"
+          echo "VERIFY ELF"
+          echo "========================================"
+
+          test -f OPL_NEXT_BETA.ELF
+
           ls -lh OPL_NEXT_BETA.ELF
+
           file OPL_NEXT_BETA.ELF
 
       - name: Upload ELF Artifact
