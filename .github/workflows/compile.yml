@@ -2,31 +2,43 @@ name: Compilar OPL Next ELF
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
+
   workflow_dispatch:
 
 jobs:
   build:
+    name: Build PS2 ELF
     runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/ps2dev/ps2dev:latest
+
     steps:
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build ELF File
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ps2dev/ps2dev:latest
-          options: -v ${{ github.workspace }}:/src -w /src
-          run: |
-            export PS2DEV=/usr/local/ps2dev
-            export PS2SDK=$PS2DEV/ps2sdk
-            export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2SDK/bin
-            
-            ee-gcc -I$PS2SDK/ee/include -I$PS2SDK/common/include -O2 -G0 -Wall \
-                   -L$PS2SDK/ee/lib \
-                   src/main.c \
-                   -ldebug -lps2ip -lkernel -lsifrpc \
-                   -o OPL_NEXT_BETA.ELF
+      - name: Verificar PS2DEV
+        run: |
+          echo "PS2DEV=$PS2DEV"
+          echo "PS2SDK=$PS2SDK"
+          echo "PATH=$PATH"
+
+          which mips64r5900el-ps2-elf-gcc
+          mips64r5900el-ps2-elf-gcc --version
+
+      - name: Build ELF
+        run: |
+          make clean
+          make
+
+      - name: Verificar ELF
+        run: |
+          ls -lh OPL_NEXT_BETA.ELF
+          file OPL_NEXT_BETA.ELF
 
       - name: Upload ELF Artifact
         uses: actions/upload-artifact@v4
