@@ -5,7 +5,7 @@ EE_OBJS = \
 	src/ui.o \
 	src/input.o
 
-EE_LIBS = -ldebug -lpad -lgskit_toolkit -lgskit -ldmakit -lc
+EE_LIBS = -ldebug -lpad -lc
 
 all: $(EE_BIN)
 
