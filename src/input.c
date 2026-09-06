@@ -18,25 +18,94 @@ static unsigned int current_buttons = 0xFFFF;
 
 static char padBuf[256] __attribute__((aligned(64)));
 
+/*
+ * Inicializa o controle.
+ */
 void input_init(void)
 {
+    int ret;
+
     if (initialized)
         return;
 
-    /*
-     * Inicializa o sistema de controle.
-     */
-    padInit(0);
-
-    memset(padBuf, 0, sizeof(padBuf));
+    scr_printf("INPUT: inicializando...\n");
 
     /*
-     * Abre o controle na porta 0, slot 0.
+     * Inicializa o sistema do pad.
      */
-    if (padPortOpen(PAD_PORT, PAD_SLOT, padBuf) == 0)
+    ret = padInit(0);
+
+    if (ret < 0)
     {
-        scr_printf("INPUT: ERRO AO ABRIR CONTROLE\n");
+        scr_printf("INPUT: padInit ERRO\n");
         return;
+    }
+
+    /*
+     * Limpa o buffer.
+     */
+    memset(
+        padBuf,
+        0,
+        sizeof(padBuf)
+    );
+
+    /*
+     * Abre porta 0 / slot 0.
+     */
+    ret = padPortOpen(
+        PAD_PORT,
+        PAD_SLOT,
+        padBuf
+    );
+
+    if (ret == 0)
+    {
+        scr_printf("INPUT: controle nao encontrado\n");
+        return;
+    }
+
+    /*
+     * Aguarda o controle ficar estavel.
+     */
+    scr_printf("INPUT: aguardando controle...\n");
+
+    while (1)
+    {
+        int state;
+
+        state = padGetState(
+            PAD_PORT,
+            PAD_SLOT
+        );
+
+        if (state == PAD_STATE_STABLE)
+            break;
+
+        if (state == PAD_STATE_FINDCTP1)
+        {
+            /*
+             * O controle ainda esta sendo detectado.
+             */
+            DelayThread(1000);
+            continue;
+        }
+
+        if (state == PAD_STATE_DISCONN)
+        {
+            scr_printf("INPUT: controle desconectado\n");
+
+            padPortClose(
+                PAD_PORT,
+                PAD_SLOT
+            );
+
+            padEnd();
+
+            return;
+        }
+
+        DelayThread(1000);
     }
 
     initialized = 1;
@@ -44,14 +113,29 @@ void input_init(void)
     old_buttons = 0xFFFF;
     current_buttons = 0xFFFF;
 
-    scr_printf("INPUT: OK\n");
+    scr_printf("INPUT: CONTROLE OK\n");
 }
 
+/*
+ * Atualiza o estado do controle.
+ */
 void input_update(void)
 {
     struct padButtonStatus status;
+    int state;
 
     if (!initialized)
+        return;
+
+    /*
+     * Verifica se o controle continua conectado.
+     */
+    state = padGetState(
+        PAD_PORT,
+        PAD_SLOT
+    );
+
+    if (state != PAD_STATE_STABLE)
         return;
 
     /*
@@ -60,18 +144,29 @@ void input_update(void)
     old_buttons = current_buttons;
 
     /*
-     * Lê o estado atual do controle.
+     * Le o controle.
      */
-    if (padRead(PAD_PORT, PAD_SLOT, &status) <= 0)
+    if (padRead(
+            PAD_PORT,
+            PAD_SLOT,
+            &status
+        ) <= 0)
+    {
         return;
+    }
 
     /*
-     * No PS2SDK usado pelo projeto, btns é um
-     * valor de 16 bits, e não um array.
+     * btns contem os botoes em 16 bits.
+     *
+     * Bit = 0 -> pressionado
+     * Bit = 1 -> solto
      */
-    current_buttons = status.btns;
+    current_buttons = (unsigned int)status.btns;
 }
 
+/*
+ * Retorna 1 somente quando o botao acabou de ser pressionado.
+ */
 int input_pressed(int button)
 {
     unsigned int mask;
@@ -118,15 +213,10 @@ int input_pressed(int button)
     }
 
     /*
-     * Os botoes do DualShock usam logica ativa em 0:
+     * Detecta a transicao:
      *
-     * 0 = pressionado
-     * 1 = solto
-     *
-     * Detecta somente a transicao:
-     *
-     * anterior = solto
-     * atual    = pressionado
+     * antigo = solto
+     * atual  = pressionado
      */
     if ((current_buttons & mask) == 0 &&
         (old_buttons & mask) != 0)
@@ -137,16 +227,25 @@ int input_pressed(int button)
     return 0;
 }
 
+/*
+ * Finaliza o controle.
+ */
 void input_shutdown(void)
 {
     if (!initialized)
         return;
 
-    padPortClose(PAD_PORT, PAD_SLOT);
+    padPortClose(
+        PAD_PORT,
+        PAD_SLOT
+    );
+
     padEnd();
 
     initialized = 0;
 
     old_buttons = 0xFFFF;
     current_buttons = 0xFFFF;
+
+    scr_printf("INPUT: desligado\n");
 }
