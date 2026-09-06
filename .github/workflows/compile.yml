@@ -23,7 +23,7 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Instalar ferramentas
         shell: sh
@@ -39,7 +39,7 @@ jobs:
           command -v make
           make --version
 
-      - name: Diagnosticar ambiente PS2DEV
+      - name: Preparar ambiente PS2DEV
         shell: sh
         run: |
           export PS2DEV=/usr/local/ps2dev
@@ -57,76 +57,33 @@ jobs:
           echo "GSKIT=$GSKIT"
 
           echo ""
-          echo "========================================"
-          echo "COMPILADOR"
-          echo "========================================"
-
+          echo "Compilador:"
           command -v mips64r5900el-ps2-elf-gcc
 
           echo ""
-          mips64r5900el-ps2-elf-gcc --version
-
-          echo ""
-          echo "========================================"
-          echo "MAKE"
-          echo "========================================"
-
+          echo "Make:"
           command -v make
-          make --version
 
           echo ""
           echo "========================================"
-          echo "CONTEUDO DO PS2DEV"
+          echo "VERIFICANDO GSKIT"
           echo "========================================"
-
-          ls -la "$PS2DEV" || true
 
           echo ""
-          echo "========================================"
-          echo "CONTEUDO DO GSKIT"
-          echo "========================================"
-
-          if [ -d "$GSKIT" ]; then
-            ls -la "$GSKIT"
-          else
-            echo "DIRETORIO GSKIT NAO EXISTE:"
-            echo "$GSKIT"
-          fi
+          echo "Procurando gsKit.h:"
+          find "$PS2DEV" -type f -name "gsKit.h" -print 2>/dev/null || true
 
           echo ""
-          echo "========================================"
-          echo "PROCURANDO GSKIT.H"
-          echo "========================================"
-
-          find "$PS2DEV" \
-            -type f \
-            -name "gsKit.h" \
-            -print 2>/dev/null || true
+          echo "Procurando gsToolkit.h:"
+          find "$PS2DEV" -type f -name "gsToolkit.h" -print 2>/dev/null || true
 
           echo ""
-          echo "========================================"
-          echo "PROCURANDO GSKIT HEADERS"
-          echo "========================================"
-
-          find "$PS2DEV" \
-            -type f \
-            \( \
-              -name "gsKit.h" \
-              -o -name "gsInit.h" \
-              -o -name "gsInline.h" \
-              -o -name "gsCore.h" \
-              -o -name "gsToolkit.h" \
-              -o -name "dmaKit.h" \
-            \) \
-            -print 2>/dev/null || true
+          echo "Procurando dmaKit.h:"
+          find "$PS2DEV" -type f -name "dmaKit.h" -print 2>/dev/null || true
 
           echo ""
-          echo "========================================"
-          echo "PROCURANDO BIBLIOTECAS GSKIT"
-          echo "========================================"
-
-          find "$PS2DEV" \
-            -type f \
+          echo "Procurando bibliotecas:"
+          find "$PS2DEV" -type f \
             \( \
               -name "libgskit.a" \
               -o -name "libgskit_toolkit.a" \
@@ -134,21 +91,58 @@ jobs:
             \) \
             -print 2>/dev/null || true
 
-          echo ""
+      - name: Limpar
+        shell: sh
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export GSKIT=$PS2DEV/gsKit
+
+          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
+
           echo "========================================"
-          echo "FIM DO DIAGNOSTICO"
+          echo "LIMPANDO BUILD"
           echo "========================================"
 
-      - name: Parar para analisar ambiente
+          make clean || true
+
+      - name: Compilar
+        shell: sh
+        run: |
+          export PS2DEV=/usr/local/ps2dev
+          export PS2SDK=$PS2DEV/ps2sdk
+          export GSKIT=$PS2DEV/gsKit
+
+          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
+
+          echo "========================================"
+          echo "COMPILANDO OPL NEXT"
+          echo "========================================"
+
+          make
+
+      - name: Verificar ELF
         shell: sh
         run: |
           echo "========================================"
-          echo "DIAGNOSTICO CONCLUIDO"
+          echo "VERIFICANDO ELF"
           echo "========================================"
+
+          if [ ! -f OPL_NEXT_BETA.ELF ]; then
+            echo "ERRO: OPL_NEXT_BETA.ELF nao foi gerado!"
+            exit 1
+          fi
+
           echo ""
-          echo "O build foi pausado propositalmente."
-          echo "Nenhum arquivo do projeto sera compilado nesta etapa."
+          echo "ELF gerado com sucesso:"
+          ls -lh OPL_NEXT_BETA.ELF
+
           echo ""
-          echo "Os caminhos reais do gsKit foram impressos acima."
-          echo ""
-          exit 0
+          echo "Verificacao concluida."
+
+      - name: Publicar ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: OPL_NEXT_BETA_ELF
+          path: OPL_NEXT_BETA.ELF
+          if-no-files-found: error
