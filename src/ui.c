@@ -2,196 +2,246 @@
 #include "input.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <debug.h>
+#include <malloc.h>
 
-#define MENU_COUNT 4
+#include <gsKit.h>
+#include <dmaKit.h>
+
+#define SCREEN_WIDTH  640
+#define SCREEN_HEIGHT 448
+
+#define COLOR_BG       GS_SETREG_RGBAQ(8, 10, 16, 0x80, 0)
+#define COLOR_PANEL    GS_SETREG_RGBAQ(20, 24, 34, 0x80, 0)
+#define COLOR_PANEL2   GS_SETREG_RGBAQ(28, 34, 48, 0x80, 0)
+#define COLOR_ACCENT   GS_SETREG_RGBAQ(40, 140, 255, 0x80, 0)
+#define COLOR_ACCENT2  GS_SETREG_RGBAQ(70, 180, 255, 0x80, 0)
+#define COLOR_WHITE    GS_SETREG_RGBAQ(235, 240, 250, 0x80, 0)
+#define COLOR_TEXT     GS_SETREG_RGBAQ(190, 200, 215, 0x80, 0)
+#define COLOR_LINE     GS_SETREG_RGBAQ(50, 60, 80, 0x80, 0)
+
+static GSGLOBAL *gsGlobal = NULL;
 
 static int selected = 0;
 
-static const char *menu_items[MENU_COUNT] =
+static const char *menu_items[] =
 {
     "JOGOS",
-    "REDE / SMB",
-    "CONFIGURACOES",
-    "SOBRE"
+    "REDE",
+    "CONFIGURACOES"
 };
 
-static void ui_clear(void)
+#define MENU_COUNT 3
+
+static void draw_rect(
+    float x1,
+    float y1,
+    float x2,
+    float y2,
+    u64 color
+)
 {
-    scr_clear();
+    gsKit_prim_sprite(
+        gsGlobal,
+        x1,
+        y1,
+        x2,
+        y2,
+        1,
+        color
+    );
 }
 
-static void ui_header(void)
+static void draw_background(void)
 {
-    scr_printf("\n");
-    scr_printf("============================================================\n");
-    scr_printf("                    OPL NEXT CLIENT                         \n");
-    scr_printf("                         V0.1                               \n");
-    scr_printf("============================================================\n");
+    draw_rect(
+        0,
+        0,
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        COLOR_BG
+    );
 }
 
-static void ui_footer(void)
+static void draw_header(void)
 {
-    scr_printf("\n");
-    scr_printf("------------------------------------------------------------\n");
-    scr_printf(" D-PAD  Navegar       X  Selecionar       START  Opcoes\n");
-    scr_printf(" O      Voltar        SELECT  Sistema\n");
-    scr_printf("------------------------------------------------------------\n");
+    draw_rect(
+        0,
+        0,
+        SCREEN_WIDTH,
+        58,
+        COLOR_PANEL
+    );
+
+    draw_rect(
+        0,
+        57,
+        SCREEN_WIDTH,
+        60,
+        COLOR_ACCENT
+    );
 }
 
-static void ui_draw_menu(void)
+static void draw_preview(void)
+{
+    /*
+     * Area reservada para a capa do jogo.
+     * Nesta V0.2 ainda nao carregamos imagens.
+     */
+    draw_rect(
+        42,
+        105,
+        230,
+        365,
+        COLOR_PANEL
+    );
+
+    draw_rect(
+        54,
+        117,
+        218,
+        353,
+        COLOR_PANEL2
+    );
+
+    /*
+     * Pequeno detalhe visual no centro.
+     */
+    draw_rect(
+        92,
+        205,
+        180,
+        220,
+        COLOR_ACCENT
+    );
+
+    draw_rect(
+        105,
+        225,
+        167,
+        230,
+        COLOR_ACCENT2
+    );
+}
+
+static void draw_menu(void)
 {
     int i;
 
-    scr_printf("\n");
-
     for (i = 0; i < MENU_COUNT; i++)
     {
+        float y = 125.0f + (float)(i * 70);
+
         if (i == selected)
         {
-            scr_printf("       >>>  [ %s ]\n", menu_items[i]);
+            draw_rect(
+                270,
+                y - 8,
+                590,
+                y + 45,
+                COLOR_ACCENT
+            );
+
+            draw_rect(
+                277,
+                y - 1,
+                583,
+                y + 38,
+                COLOR_PANEL2
+            );
         }
         else
         {
-            scr_printf("            %s\n", menu_items[i]);
+            draw_rect(
+                270,
+                y - 8,
+                590,
+                y + 45,
+                COLOR_PANEL
+            );
         }
-
-        scr_printf("\n");
     }
 }
 
-static void ui_draw_status(void)
+static void draw_footer(void)
 {
-    scr_printf("\n");
-    scr_printf(" STATUS\n");
-    scr_printf(" ----------------------------------------------------------\n");
-    scr_printf(" Video       : OK\n");
-    scr_printf(" Controller  : OK\n");
-    scr_printf(" Graphics    : DEBUG UI\n");
-    scr_printf(" Network     : NAO INICIALIZADA\n");
-    scr_printf(" SMB         : NAO INICIALIZADO\n");
-    scr_printf(" ----------------------------------------------------------\n");
-}
+    draw_rect(
+        0,
+        410,
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        COLOR_PANEL
+    );
 
-static void ui_draw_about(void)
-{
-    ui_clear();
-
-    scr_printf("\n");
-    scr_printf("============================================================\n");
-    scr_printf("                        SOBRE                               \n");
-    scr_printf("============================================================\n\n");
-
-    scr_printf(" OPL NEXT CLIENT\n\n");
-
-    scr_printf(" Projeto independente de launcher para PlayStation 2.\n\n");
-
-    scr_printf(" V0.1\n");
-    scr_printf(" Interface inicial\n");
-    scr_printf(" Sistema de controle\n");
-    scr_printf(" Estrutura preparada para rede/SMB\n\n");
-
-    scr_printf(" Esta versao ainda NAO carrega jogos.\n\n");
-
-    scr_printf("------------------------------------------------------------\n");
-    scr_printf(" O = Voltar\n");
-    scr_printf("------------------------------------------------------------\n");
-}
-
-static void ui_draw_network(void)
-{
-    ui_clear();
-
-    scr_printf("\n");
-    scr_printf("============================================================\n");
-    scr_printf("                       REDE / SMB                           \n");
-    scr_printf("============================================================\n\n");
-
-    scr_printf(" Ethernet       : PREPARADA PARA V0.2\n");
-    scr_printf(" TCP/IP         : PREPARADO PARA V0.2\n");
-    scr_printf(" SMB            : PREPARADO PARA V0.2\n\n");
-
-    scr_printf(" Proximo passo:\n\n");
-
-    scr_printf(" 1. Inicializar Ethernet\n");
-    scr_printf(" 2. Obter endereco IP\n");
-    scr_printf(" 3. Testar servidor\n");
-    scr_printf(" 4. Conectar compartilhamento SMB\n");
-    scr_printf(" 5. Listar jogos\n\n");
-
-    scr_printf(" Nenhuma conexao de rede foi realizada nesta V0.1.\n\n");
-
-    scr_printf("------------------------------------------------------------\n");
-    scr_printf(" O = Voltar\n");
-    scr_printf("------------------------------------------------------------\n");
-}
-
-static void ui_draw_games(void)
-{
-    ui_clear();
-
-    scr_printf("\n");
-    scr_printf("============================================================\n");
-    scr_printf("                         JOGOS                              \n");
-    scr_printf("============================================================\n\n");
-
-    scr_printf(" Nenhum jogo encontrado.\n\n");
-
-    scr_printf(" Fontes futuras:\n\n");
-    scr_printf("   [ ] SMB\n");
-    scr_printf("   [ ] USB\n");
-    scr_printf("   [ ] HDD\n\n");
-
-    scr_printf(" A biblioteca de jogos sera adicionada depois do\n");
-    scr_printf(" sistema de rede e armazenamento.\n\n");
-
-    scr_printf("------------------------------------------------------------\n");
-    scr_printf(" O = Voltar\n");
-    scr_printf("------------------------------------------------------------\n");
-}
-
-static void ui_draw_settings(void)
-{
-    ui_clear();
-
-    scr_printf("\n");
-    scr_printf("============================================================\n");
-    scr_printf("                     CONFIGURACOES                          \n");
-    scr_printf("============================================================\n\n");
-
-    scr_printf(" Video\n");
-    scr_printf("   Modo             : AUTO\n\n");
-
-    scr_printf(" Interface\n");
-    scr_printf("   Animacoes        : ON\n");
-    scr_printf("   Som              : OFF\n\n");
-
-    scr_printf(" Sistema\n");
-    scr_printf("   Rede             : FUTURA\n");
-    scr_printf("   SMB              : FUTURO\n\n");
-
-    scr_printf("------------------------------------------------------------\n");
-    scr_printf(" O = Voltar\n");
-    scr_printf("------------------------------------------------------------\n");
+    draw_rect(
+        0,
+        409,
+        SCREEN_WIDTH,
+        411,
+        COLOR_LINE
+    );
 }
 
 void ui_init(void)
 {
-    init_scr();
+    /*
+     * Inicializa o sistema DMA utilizado pelo gsKit.
+     */
+    dmaKit_init(
+        D_CTRL_RELE_OFF,
+        D_CTRL_MFD_OFF,
+        D_CTRL_STS_UNSPEC,
+        D_CTRL_STD_OFF,
+        D_CTRL_RCYC_8,
+        1 << DMA_CHANNEL_GIF
+    );
 
-    scr_clear();
+    dmaKit_chan_init(DMA_CHANNEL_GIF);
+
+    /*
+     * NTSC 640x448.
+     *
+     * Escolhemos este modo inicialmente porque o teste
+     * anterior foi feito em um PS2 real e apresentou boa
+     * compatibilidade.
+     */
+    gsGlobal = gsKit_init_global();
+
+    if (gsGlobal == NULL)
+    {
+        return;
+    }
+
+    gsGlobal->Mode = GS_MODE_NTSC;
+    gsGlobal->Interlace = GS_INTERLACED;
+    gsGlobal->Field = GS_FRAME;
+
+    gsGlobal->Width = SCREEN_WIDTH;
+    gsGlobal->Height = SCREEN_HEIGHT;
+
+    gsGlobal->PSM = GS_PSM_CT16;
+    gsGlobal->PSMZ = GS_PSMZ_16;
+
+    gsGlobal->DoubleBuffering = GS_SETTING_ON;
+    gsGlobal->ZBuffering = GS_SETTING_OFF;
+    gsGlobal->Dithering = GS_SETTING_OFF;
+
+    /*
+     * Inicializa o framebuffer.
+     */
+    gsKit_init_screen(gsGlobal);
 
     selected = 0;
 }
 
 void ui_shutdown(void)
 {
-    /*
-     * Nothing to release yet.
-     * Graphics resources will be managed here
-     * when the full gsKit renderer is introduced.
-     */
+    if (gsGlobal != NULL)
+    {
+        gsKit_deinit_global(gsGlobal);
+        gsGlobal = NULL;
+    }
 }
 
 void ui_update(void)
@@ -202,15 +252,14 @@ void ui_update(void)
 
     input = input_get();
 
-    /*
-     * Main menu navigation.
-     */
     if (input->up)
     {
         selected--;
 
         if (selected < 0)
+        {
             selected = MENU_COUNT - 1;
+        }
     }
 
     if (input->down)
@@ -218,60 +267,59 @@ void ui_update(void)
         selected++;
 
         if (selected >= MENU_COUNT)
+        {
             selected = 0;
+        }
     }
 
     /*
-     * Selection.
+     * Nesta V0.2 o X ainda nao abre uma nova tela.
+     * Apenas reservamos o comportamento para a proxima etapa.
      */
     if (input->cross)
     {
-        switch (selected)
-        {
-            case 0:
-                ui_draw_games();
-                while (!input_get()->circle)
-                {
-                    input_update();
-                }
-                break;
-
-            case 1:
-                ui_draw_network();
-                while (!input_get()->circle)
-                {
-                    input_update();
-                }
-                break;
-
-            case 2:
-                ui_draw_settings();
-                while (!input_get()->circle)
-                {
-                    input_update();
-                }
-                break;
-
-            case 3:
-                ui_draw_about();
-                while (!input_get()->circle)
-                {
-                    input_update();
-                }
-                break;
-        }
+        /*
+         * Futuramente:
+         *
+         * JOGOS          -> biblioteca
+         * REDE           -> SMB
+         * CONFIGURACOES  -> configuracoes
+         */
     }
 }
 
 void ui_render(void)
 {
-    ui_clear();
+    if (gsGlobal == NULL)
+    {
+        return;
+    }
 
-    ui_header();
+    /*
+     * Limpa o framebuffer atual.
+     */
+    gsKit_clear(
+        gsGlobal,
+        COLOR_BG
+    );
 
-    ui_draw_menu();
+    draw_background();
 
-    ui_draw_status();
+    draw_header();
 
-    ui_footer();
+    draw_preview();
+
+    draw_menu();
+
+    draw_footer();
+
+    /*
+     * Executa a fila de comandos do GS.
+     */
+    gsKit_queue_exec(gsGlobal);
+
+    /*
+     * Troca o framebuffer sincronizado com o vídeo.
+     */
+    gsKit_sync_flip(gsGlobal);
 }
