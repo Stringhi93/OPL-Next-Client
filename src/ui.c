@@ -1,6 +1,7 @@
 #include "ui.h"
 #include "input.h"
-#include "network.h"
+
+#include <debug.h>
 
 #define SCREEN_MAIN     0
 #define SCREEN_GAMES    1
@@ -13,9 +14,6 @@ static int screen = SCREEN_MAIN;
 static int selected = 0;
 static int needs_redraw = 1;
 
-static int network_tested = 0;
-static int network_result = -99;
-
 static const char *main_menu[] =
 {
     "JOGOS",
@@ -23,6 +21,10 @@ static const char *main_menu[] =
     "CONFIGURACOES"
 };
 
+
+/*
+ * Tela principal.
+ */
 static void draw_main_menu(void)
 {
     int i;
@@ -44,11 +46,15 @@ static void draw_main_menu(void)
     scr_printf("\n");
     scr_printf("----------------------------------------\n");
     scr_printf("CIMA/BAIXO : MOVER\n");
-    scr_printf("X          : ENTRAR\n");
-    scr_printf("O          : VOLTAR\n");
+    scr_printf("X           : ENTRAR\n");
+    scr_printf("O           : VOLTAR\n");
     scr_printf("----------------------------------------\n");
 }
 
+
+/*
+ * Tela de jogos.
+ */
 static void draw_games(void)
 {
     scr_printf("========================================\n");
@@ -68,43 +74,30 @@ static void draw_games(void)
     scr_printf("----------------------------------------\n");
 }
 
+
+/*
+ * Tela de teste de rede.
+ */
 static void draw_network(void)
 {
     scr_printf("========================================\n");
     scr_printf("             TESTE DE REDE\n");
     scr_printf("========================================\n\n");
 
-    scr_printf("PS2:\n");
-    scr_printf("192.168.1.20\n\n");
+    scr_printf("SERVIDOR DE TESTE\n\n");
 
-    scr_printf("PC:\n");
+    scr_printf("IP DO PC:\n");
     scr_printf("192.168.1.8\n\n");
 
-    scr_printf("SMB:\n");
-    scr_printf("ps2\n");
-    scr_printf("Porta: 445\n\n");
+    scr_printf("PORTA:\n");
+    scr_printf("445\n\n");
 
     scr_printf("STATUS:\n");
 
-    if (!network_is_ready())
-    {
-        scr_printf("REDE DESCONECTADA\n");
-    }
-    else if (!network_tested)
-    {
-        scr_printf("REDE CONECTADA\n");
-        scr_printf("AGUARDANDO TESTE\n");
-    }
-    else if (network_result == 0)
-    {
-        scr_printf("CONEXAO COM PC: OK\n");
-        scr_printf("SMB: PORTA 445 OK\n");
-    }
+    if (network_is_ready())
+        scr_printf("LINK CONECTADO\n");
     else
-    {
-        scr_printf("CONEXAO COM PC: FALHOU\n");
-        scr_printf("VERIFIQUE O PC E O SMB\n");
-    }
+        scr_printf("LINK DESCONECTADO\n");
 
     scr_printf("\n");
     scr_printf("----------------------------------------\n");
@@ -113,6 +106,10 @@ static void draw_network(void)
     scr_printf("----------------------------------------\n");
 }
 
+
+/*
+ * Tela de configurações.
+ */
 static void draw_config(void)
 {
     scr_printf("========================================\n");
@@ -134,21 +131,35 @@ static void draw_config(void)
     scr_printf("----------------------------------------\n");
 }
 
+
+/*
+ * Inicializa a interface.
+ */
 void ui_init(void)
 {
     screen = SCREEN_MAIN;
     selected = 0;
     needs_redraw = 1;
-    network_tested = 0;
-    network_result = -99;
 }
 
+
+/*
+ * Atualiza a interface.
+ */
 void ui_update(void)
 {
     const InputState *in;
 
+    /*
+     * Atualiza o controle uma única vez.
+     */
+    input_update();
+
     in = input_get();
 
+    /*
+     * MENU PRINCIPAL
+     */
     if (screen == SCREEN_MAIN)
     {
         if (in->up)
@@ -170,46 +181,104 @@ void ui_update(void)
         if (in->cross)
         {
             if (selected == 0)
+            {
                 screen = SCREEN_GAMES;
+            }
             else if (selected == 1)
+            {
                 screen = SCREEN_NETWORK;
-            else
+            }
+            else if (selected == 2)
+            {
                 screen = SCREEN_CONFIG;
+            }
 
             needs_redraw = 1;
         }
     }
-    else if (screen == SCREEN_NETWORK)
-    {
-        if (in->cross)
-        {
-            network_tested = 1;
-
-            network_result =
-                network_test_server(
-                    "192.168.1.8",
-                    445
-                );
-
-            needs_redraw = 1;
-        }
-
-        if (in->circle || in->start)
-        {
-            screen = SCREEN_MAIN;
-            needs_redraw = 1;
-        }
-    }
+    /*
+     * TELAS INTERNAS
+     */
     else
     {
-        if (in->circle || in->start)
+        /*
+         * X na tela de teste de rede.
+         */
+        if (screen == SCREEN_NETWORK && in->cross)
+        {
+            int result;
+
+            scr_clear();
+
+            scr_printf("========================================\n");
+            scr_printf("             TESTE DE REDE\n");
+            scr_printf("========================================\n\n");
+
+            scr_printf("Conectando ao PC...\n");
+            scr_printf("192.168.1.8:445\n\n");
+
+            result = network_test_server(
+                "192.168.1.8",
+                445
+            );
+
+            if (result == 0)
+            {
+                scr_printf("RESULTADO: CONECTADO!\n");
+            }
+            else if (result == -1)
+            {
+                scr_printf("RESULTADO: REDE NAO INICIALIZADA\n");
+            }
+            else if (result == -2)
+            {
+                scr_printf("RESULTADO: LINK DESCONECTADO\n");
+            }
+            else if (result == -3)
+            {
+                scr_printf("RESULTADO: ERRO AO CRIAR SOCKET\n");
+            }
+            else
+            {
+                scr_printf("RESULTADO: FALHA NA CONEXAO\n");
+            }
+
+            scr_printf("\nPressione O para voltar.\n");
+
+            /*
+             * Evita redesenhar imediatamente a tela.
+             */
+            needs_redraw = 0;
+
+            return;
+        }
+
+        /*
+         * O volta ao menu principal.
+         */
+        if (in->circle)
         {
             screen = SCREEN_MAIN;
+            selected = 0;
+            needs_redraw = 1;
+        }
+
+        /*
+         * START também volta ao menu.
+         */
+        if (in->start)
+        {
+            screen = SCREEN_MAIN;
+            selected = 0;
             needs_redraw = 1;
         }
     }
 }
 
+
+/*
+ * Desenha a tela atual.
+ */
 void ui_render(void)
 {
     if (!needs_redraw)
@@ -218,13 +287,21 @@ void ui_render(void)
     scr_clear();
 
     if (screen == SCREEN_MAIN)
+    {
         draw_main_menu();
+    }
     else if (screen == SCREEN_GAMES)
+    {
         draw_games();
+    }
     else if (screen == SCREEN_NETWORK)
+    {
         draw_network();
+    }
     else if (screen == SCREEN_CONFIG)
+    {
         draw_config();
+    }
 
     needs_redraw = 0;
 }
