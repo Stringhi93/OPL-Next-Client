@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <kernel.h>
 #include <sifrpc.h>
+#include <debug.h>
 
 #include "input.h"
 #include "ui.h"
@@ -11,12 +12,12 @@ int main(int argc, char *argv[])
     (void)argv;
 
     /*
-     * Initialize SIF RPC.
+     * Inicializa o sistema RPC do PS2.
      */
     sceSifInitRpc(0);
 
     /*
-     * Initialize controller.
+     * Inicializa o sistema de controle.
      */
     if (!input_init())
     {
@@ -24,9 +25,9 @@ int main(int argc, char *argv[])
         scr_clear();
 
         scr_printf("\n");
-        scr_printf("==================================================\n");
-        scr_printf("                 OPL NEXT CLIENT                 \n");
-        scr_printf("==================================================\n\n");
+        scr_printf("============================================================\n");
+        scr_printf("                    OPL NEXT CLIENT                         \n");
+        scr_printf("============================================================\n\n");
 
         scr_printf("ERRO: nao foi possivel inicializar o controle.\n\n");
 
@@ -44,71 +45,37 @@ int main(int argc, char *argv[])
     }
 
     /*
-     * Initialize user interface.
+     * Inicializa a interface.
      */
     ui_init();
 
     /*
-     * Initial frame.
+     * Desenha a primeira tela.
      */
     ui_render();
 
     /*
-     * Main application loop.
+     * Loop principal.
      */
     while (1)
     {
         ui_update();
 
-        /*
-         * Render the main screen.
-         *
-         * Sub-pages currently draw themselves directly.
-         * This will be replaced by a proper state machine
-         * in the next UI iteration.
-         */
         ui_render();
 
         /*
-         * Small delay prevents unnecessary CPU usage
-         * while keeping controller response comfortable.
+         * Pequena pausa para evitar uso desnecessario
+         * da CPU enquanto aguardamos o proximo frame.
          */
         DelayThread(16000);
     }
 
+    /*
+     * Nunca deve chegar aqui, mas mantemos a
+     * finalizacao organizada.
+     */
     ui_shutdown();
     input_shutdown();
-
-    return 0;
-}
-#include <stdio.h>
-#include <debug.h>
-
-int main(int argc, char *argv[])
-{
-    init_scr();
-
-    scr_clear();
-
-    scr_printf("========================================\n");
-    scr_printf("          OPL NEXT CLIENT\n");
-    scr_printf("========================================\n\n");
-
-    scr_printf("ELF iniciado com sucesso!\n\n");
-
-    scr_printf("Projeto: OPL Next\n");
-    scr_printf("Plataforma: PlayStation 2\n");
-    scr_printf("Servidor: TV Box\n");
-    scr_printf("Modo futuro: Rede / SMB\n\n");
-
-    scr_printf("----------------------------------------\n");
-    scr_printf("Build test OK!\n");
-    scr_printf("----------------------------------------\n");
-
-    while (1)
-    {
-        /* Programa permanece executando. */
-    } 
 
     return 0;
 }
