@@ -5,37 +5,34 @@ EE_OBJS = \
 	src/ui.o \
 	src/input.o \
 	src/network.o \
-	ps2dev9_irx.o \
-	netman_irx.o \
-	smap_irx.o
+	src/DEV9_irx.o \
+	src/NETMAN_irx.o \
+	src/SMAP_irx.o
 
 EE_LIBS = \
-	-lsbv_patches \
 	-lnetman \
 	-lps2ip \
 	-ldebug \
+	-lpatches \
 	-lpad \
 	-lc
 
 all: $(EE_BIN)
 
-# Embute os drivers de rede dentro do ELF.
-ps2dev9_irx.s:
-	bin2s $(PS2SDK)/iop/irx/ps2dev9.irx ps2dev9_irx.s ps2dev9_irx
-
-netman_irx.s:
-	bin2s $(PS2SDK)/iop/irx/netman.irx netman_irx.s netman_irx
-
-smap_irx.s:
-	bin2s $(PS2SDK)/iop/irx/smap.irx smap_irx.s smap_irx
-
-ps2dev9_irx.o: ps2dev9_irx.s
-netman_irx.o: netman_irx.s
-smap_irx.o: smap_irx.s
-
 clean:
-	rm -f $(EE_OBJS) $(EE_BIN)
-	rm -f ps2dev9_irx.s netman_irx.s smap_irx.s
+	rm -f $(EE_BIN) $(EE_OBJS)
+	rm -f src/DEV9_irx.c
+	rm -f src/NETMAN_irx.c
+	rm -f src/SMAP_irx.c
+
+src/DEV9_irx.c: $(PS2SDK)/iop/irx/ps2dev9.irx
+	bin2c $< src/DEV9_irx.c DEV9_irx
+
+src/NETMAN_irx.c: $(PS2SDK)/iop/irx/netman.irx
+	bin2c $< src/NETMAN_irx.c NETMAN_irx
+
+src/SMAP_irx.c: $(PS2SDK)/iop/irx/smap.irx
+	bin2c $< src/SMAP_irx.c SMAP_irx
 
 include $(PS2SDK)/samples/Makefile.pref
 include $(PS2SDK)/samples/Makefile.eeglobal
