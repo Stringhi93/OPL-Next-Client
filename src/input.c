@@ -1,233 +1,161 @@
 #include "input.h"
 
+#include <stdio.h>
+#include <string.h>
+
 #include <kernel.h>
 #include <sifrpc.h>
 #include <libpad.h>
-#include <malloc.h>
-#include <string.h>
 
-#define PAD_PORT 0
-#define PAD_SLOT 0
+#define PAD_PORT        0
+#define PAD_SLOT        0
 
-static unsigned char *pad_buffer = NULL;
-static struct padButtonStatus pad_status;
-
-static InputState current;
-
-static unsigned short previous_buttons = 0;
-
-static int pad_open = 0;
 static int initialized = 0;
+static unsigned int old_buttons = 0;
+static unsigned int current_buttons = 0;
 
-static unsigned short pad_buttons(void)
+static char padBuf[256] __attribute__((aligned(64)));
+
+static int pad_read(void)
 {
-    /*
-     * O libpad usa logica ativa em nivel baixo.
-     * Convertemos para nivel alto para o programa.
-     */
-    return (unsigned short)(0xFFFF ^ pad_status.btns);
-}
+    struct padButtonStatus buttons;
 
-static int just_pressed(unsigned short buttons,
-                        unsigned short mask)
-{
-    return ((buttons & mask) != 0) &&
-           ((previous_buttons & mask) == 0);
-}
+    int state;
 
-int input_init(void)
-{
-    /*
-     * Inicializa comunicacao EE <-> IOP.
-     */
-    sceSifInitRpc(0);
+    state = padGetState(PAD_PORT, PAD_SLOT);
 
-    /*
-     * Inicializa o sistema de controle.
-     */
-    if (!padInit(0))
+    if (state != PAD_STATE_STABLE &&
+        state != PAD_STATE_FINDCTP1)
     {
         return 0;
     }
 
-    /*
-     * Area de trabalho exigida pelo libpad.
-     */
-    pad_buffer = (unsigned char *)memalign(64, 256);
-
-    if (pad_buffer == NULL)
+    if (padRead(PAD_PORT, PAD_SLOT, &buttons) <= 0)
     {
-        padEnd();
         return 0;
     }
 
-    memset(pad_buffer, 0, 256);
-    memset(&pad_status, 0, sizeof(pad_status));
-    memset(&current, 0, sizeof(current));
-
-    /*
-     * Abre porta 1, slot 1.
-     */
-    pad_open = padPortOpen(
-        PAD_PORT,
-        PAD_SLOT,
-        pad_buffer
-    );
-
-    if (!pad_open)
-    {
-        free(pad_buffer);
-        pad_buffer = NULL;
-        padEnd();
-        return 0;
-    }
-
-    /*
-     * Tenta colocar o controle em modo DualShock.
-     */
-    padSetMainMode(
-        PAD_PORT,
-        PAD_SLOT,
-        PAD_MMODE_DUALSHOCK,
-        0
-    );
-
-    /*
-     * Nao consideramos o controle pronto imediatamente.
-     * O libpad precisa de algum tempo para inicializar.
-     */
-    previous_buttons = 0;
-
-    initialized = 1;
+    current_buttons =
+        ((unsigned int)buttons.btns[0] << 8) |
+        (unsigned int)buttons.btns[1];
 
     return 1;
 }
 
+void input_init(void)
+{
+    if (initialized)
+        return;
+
+    SifInitRpc(0);
+
+    memset(padBuf, 0, sizeof(padBuf));
+
+    padInit(0);
+
+    if (padPortOpen(PAD_PORT, PAD_SLOT, padBuf) == 0)
+    {
+        scr_printf("INPUT: erro ao abrir controle\n");
+        initialized = 0;
+        return;
+    }
+
+    initialized = 1;
+
+    old_buttons = 0;
+    current_buttons = 0;
+
+    scr_printf("INPUT: OK\n");
+}
+
 void input_update(void)
 {
-    int state;
-    unsigned short buttons;
-
     if (!initialized)
         return;
 
-    /*
-     * Verifica o estado atual do controle.
-     */
-    state = padGetState(PAD_PORT, PAD_SLOT);
+    old_buttons = current_buttons;
 
-    /*
-     * Enquanto o controle estiver inicializando,
-     * nao geramos comandos.
-     */
-    if (state != PAD_STATE_STABLE)
+    pad_read();
+}
+
+int input_pressed(int button)
+{
+    unsigned int mask;
+
+    if (!initialized)
+        return 0;
+
+    switch (button)
     {
-        memset(&current, 0, sizeof(current));
-        previous_buttons = 0;
-        return;
+        case INPUT_UP:
+            mask = PAD_UP;
+            break;
+
+        case INPUT_DOWN:
+            mask = PAD_DOWN;
+            break;
+
+        case INPUT_LEFT:
+            mask = PAD_LEFT;
+            break;
+
+        case INPUT_RIGHT:
+            mask = PAD_RIGHT;
+            break;
+
+        case INPUT_CROSS:
+            mask = PAD_CROSS;
+            break;
+
+        case INPUT_CIRCLE:
+            mask = PAD_CIRCLE;
+            break;
+
+        case INPUT_START:
+            mask = PAD_START;
+            break;
+
+        case INPUT_SELECT:
+            mask = PAD_SELECT;
+            break;
+
+        default:
+            return 0;
     }
 
     /*
-     * Leitura real do controle.
+     * libpad usa bits ativos em 0.
+     * Detectamos aqui a transicao:
+     * botao nao pressionado -> pressionado.
      */
-    if (!padRead(PAD_PORT, PAD_SLOT, &pad_status))
+    if ((current_buttons & mask) == 0 &&
+        (old_buttons & mask) != 0)
     {
-        memset(&current, 0, sizeof(current));
-        return;
+        return 1;
     }
 
-    buttons = pad_buttons();
-
     /*
-     * Limpa os eventos deste frame.
+     * Na primeira leitura, permite detectar
+     * um botao que ja esteja pressionado.
      */
-    memset(&current, 0, sizeof(current));
+    if (old_buttons == 0 &&
+        (current_buttons & mask) == 0)
+    {
+        return 1;
+    }
 
-    /*
-     * Direcionais.
-     */
-    current.up =
-        just_pressed(buttons, PAD_UP);
-
-    current.down =
-        just_pressed(buttons, PAD_DOWN);
-
-    current.left =
-        just_pressed(buttons, PAD_LEFT);
-
-    current.right =
-        just_pressed(buttons, PAD_RIGHT);
-
-    /*
-     * Botoes principais.
-     */
-    current.cross =
-        just_pressed(buttons, PAD_CROSS);
-
-    current.circle =
-        just_pressed(buttons, PAD_CIRCLE);
-
-    current.square =
-        just_pressed(buttons, PAD_SQUARE);
-
-    current.triangle =
-        just_pressed(buttons, PAD_TRIANGLE);
-
-    /*
-     * START / SELECT.
-     */
-    current.start =
-        just_pressed(buttons, PAD_START);
-
-    current.select =
-        just_pressed(buttons, PAD_SELECT);
-
-    /*
-     * Ombros.
-     */
-    current.l1 =
-        just_pressed(buttons, PAD_L1);
-
-    current.r1 =
-        just_pressed(buttons, PAD_R1);
-
-    current.l2 =
-        just_pressed(buttons, PAD_L2);
-
-    current.r2 =
-        just_pressed(buttons, PAD_R2);
-
-    /*
-     * Guarda o estado para detectar o proximo pressionamento.
-     */
-    previous_buttons = buttons;
+    return 0;
 }
 
 void input_shutdown(void)
 {
-    if (pad_open)
-    {
-        padPortClose(PAD_PORT, PAD_SLOT);
-        pad_open = 0;
-    }
+    if (!initialized)
+        return;
 
-    if (pad_buffer != NULL)
-    {
-        free(pad_buffer);
-        pad_buffer = NULL;
-    }
+    padPortClose(PAD_PORT, PAD_SLOT);
+    padEnd();
 
-    if (initialized)
-    {
-        padEnd();
-        initialized = 0;
-    }
-
-    memset(&current, 0, sizeof(current));
-    previous_buttons = 0;
-}
-
-const InputState *input_get(void)
-{
-    return &current;
+    initialized = 0;
+    old_buttons = 0;
+    current_buttons = 0;
 }
