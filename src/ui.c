@@ -1,57 +1,62 @@
-#include "ui.h"
-#include "input.h"
-
 #include <stdio.h>
 #include <debug.h>
 
+#include "ui.h"
+#include "input.h"
+
 static int selected = 0;
+static int needs_redraw = 1;
 
-#define MENU_COUNT 3
-
-static const char *menu_items[MENU_COUNT] =
+static const char *menu_items[] =
 {
     "JOGOS",
-    "REDE",
+    "TESTE DE REDE",
     "CONFIGURACOES"
 };
+
+#define MENU_COUNT 3
 
 void ui_init(void)
 {
     selected = 0;
+    needs_redraw = 1;
 }
 
 void ui_update(void)
 {
-    const InputState *input;
+    const InputState *in;
 
-    input = input_get();
+    input_update();
 
-    if (input == NULL)
-        return;
+    in = input_get();
 
-    if (input->up)
+    if (in->up)
     {
-        selected--;
+        if (selected > 0)
+            selected--;
 
-        if (selected < 0)
-            selected = MENU_COUNT - 1;
+        needs_redraw = 1;
     }
 
-    if (input->down)
+    if (in->down)
     {
-        selected++;
+        if (selected < MENU_COUNT - 1)
+            selected++;
 
-        if (selected >= MENU_COUNT)
-            selected = 0;
+        needs_redraw = 1;
     }
 
     /*
-     * Por enquanto X apenas mostra a opcao selecionada.
-     * Acoes reais serao adicionadas depois.
+     * X:
+     * por enquanto apenas confirma a opção.
+     *
+     * O teste real de rede será colocado na próxima etapa,
+     * depois que confirmarmos que o menu e o controle estão
+     * funcionando de forma estável.
      */
-    if (input->cross)
+    if (in->cross)
     {
-        /* Mantemos o menu funcionando. */
+        needs_redraw = 1;
     }
 }
 
@@ -59,16 +64,16 @@ void ui_render(void)
 {
     int i;
 
+    if (!needs_redraw)
+        return;
+
     scr_clear();
 
-    scr_printf("\n");
     scr_printf("========================================\n");
-    scr_printf("              OPL NEXT                  \n");
-    scr_printf("========================================\n");
-    scr_printf("\n");
+    scr_printf("              OPL NEXT\n");
+    scr_printf("========================================\n\n");
 
-    scr_printf("MENU PRINCIPAL\n");
-    scr_printf("\n");
+    scr_printf("MENU PRINCIPAL\n\n");
 
     for (i = 0; i < MENU_COUNT; i++)
     {
@@ -80,7 +85,9 @@ void ui_render(void)
 
     scr_printf("\n");
     scr_printf("----------------------------------------\n");
-    scr_printf(" CIMA / BAIXO : Navegar\n");
-    scr_printf(" X             : Selecionar\n");
+    scr_printf("CIMA/BAIXO : MOVER\n");
+    scr_printf("X          : SELECIONAR\n");
     scr_printf("----------------------------------------\n");
+
+    needs_redraw = 0;
 }
