@@ -1,43 +1,42 @@
 #include <stdio.h>
 #include <debug.h>
 
+#include "input.h"
+#include "ui.h"
+
 int main(int argc, char *argv[])
 {
-    volatile unsigned int counter = 0;
-
     (void)argc;
     (void)argv;
 
+    /*
+     * Inicializa a tela de texto do PS2SDK.
+     */
     init_scr();
     scr_clear();
 
+    /*
+     * Inicializa o controle.
+     */
+    input_init();
+
+    /*
+     * Inicializa a interface.
+     */
+    ui_init();
+
+    /*
+     * Loop principal.
+     *
+     * Nao usamos SleepThread nem DelayThread.
+     * A V0.1 ja demonstrou que a tela de texto funciona
+     * dessa maneira no seu PS2.
+     */
     while (1)
     {
-        counter++;
-
-        /*
-         * Atualiza a tela somente de tempos em tempos.
-         * Nao usamos SleepThread nem DelayThread.
-         */
-        if (counter >= 5000000)
-        {
-            counter = 0;
-
-            scr_clear();
-
-            scr_printf("\n\n");
-            scr_printf("========================================\n");
-            scr_printf("\n");
-            scr_printf("                 P S 2\n");
-            scr_printf("\n");
-            scr_printf("                 [ ]\n");
-            scr_printf("\n");
-            scr_printf("              OPL NEXT\n");
-            scr_printf("\n");
-            scr_printf("========================================\n");
-            scr_printf("\n");
-            scr_printf("PROGRAMA RODANDO...\n");
-        }
+        input_update();
+        ui_update();
+        ui_render();
     }
 
     return 0;
