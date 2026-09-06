@@ -1,43 +1,86 @@
+#include "ui.h"
+#include "input.h"
+
 #include <stdio.h>
 #include <debug.h>
 
-#include "input.h"
-#include "ui.h"
+static int selected = 0;
 
-int main(int argc, char *argv[])
+#define MENU_COUNT 3
+
+static const char *menu_items[MENU_COUNT] =
 {
-    (void)argc;
-    (void)argv;
+    "JOGOS",
+    "REDE",
+    "CONFIGURACOES"
+};
 
-    /*
-     * Inicializa a tela de texto do PS2SDK.
-     */
-    init_scr();
-    scr_clear();
+void ui_init(void)
+{
+    selected = 0;
+}
 
-    /*
-     * Inicializa o controle.
-     */
-    input_init();
+void ui_update(void)
+{
+    const InputState *input;
 
-    /*
-     * Inicializa a interface.
-     */
-    ui_init();
+    input = input_get();
 
-    /*
-     * Loop principal.
-     *
-     * Nao usamos SleepThread nem DelayThread.
-     * A V0.1 ja demonstrou que a tela de texto funciona
-     * dessa maneira no seu PS2.
-     */
-    while (1)
+    if (input == NULL)
+        return;
+
+    if (input->up)
     {
-        input_update();
-        ui_update();
-        ui_render();
+        selected--;
+
+        if (selected < 0)
+            selected = MENU_COUNT - 1;
     }
 
-    return 0;
+    if (input->down)
+    {
+        selected++;
+
+        if (selected >= MENU_COUNT)
+            selected = 0;
+    }
+
+    /*
+     * Por enquanto X apenas mostra a opcao selecionada.
+     * Acoes reais serao adicionadas depois.
+     */
+    if (input->cross)
+    {
+        /* Mantemos o menu funcionando. */
+    }
+}
+
+void ui_render(void)
+{
+    int i;
+
+    scr_clear();
+
+    scr_printf("\n");
+    scr_printf("========================================\n");
+    scr_printf("              OPL NEXT                  \n");
+    scr_printf("========================================\n");
+    scr_printf("\n");
+
+    scr_printf("MENU PRINCIPAL\n");
+    scr_printf("\n");
+
+    for (i = 0; i < MENU_COUNT; i++)
+    {
+        if (i == selected)
+            scr_printf(" > %s\n", menu_items[i]);
+        else
+            scr_printf("   %s\n", menu_items[i]);
+    }
+
+    scr_printf("\n");
+    scr_printf("----------------------------------------\n");
+    scr_printf(" CIMA / BAIXO : Navegar\n");
+    scr_printf(" X             : Selecionar\n");
+    scr_printf("----------------------------------------\n");
 }
