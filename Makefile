@@ -1,7 +1,11 @@
 EE_BIN = OPL_NEXT_BETA.ELF
-EE_OBJS = src/main.o
 
-EE_LIBS = -ldebug -lc
+EE_OBJS = \
+	src/main.o \
+	src/ui.o \
+	src/input.o
+
+EE_LIBS = -ldebug -lpad -lgskit_toolkit -lgskit -ldmakit -lc
 
 all: $(EE_BIN)
 
