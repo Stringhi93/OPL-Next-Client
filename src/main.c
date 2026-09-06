@@ -1,5 +1,6 @@
 #include <stdio.h>
-#include <sifrpc.h>
+#include <debug.h>
+#include <kernel.h>
 
 #include "input.h"
 #include "ui.h"
@@ -10,28 +11,28 @@ int main(int argc, char *argv[])
     (void)argv;
 
     /*
-     * Inicializa RPC.
+     * Inicializa a tela de texto do PS2SDK.
      */
-    sceSifInitRpc(0);
+    init_scr();
+    scr_clear();
 
     /*
      * Inicializa o controle.
      */
     if (!input_init())
     {
-        /*
-         * Nao usamos mais debug screen nesta versao.
-         * Se o controle falhar, simplesmente permanecemos
-         * no programa para evitar chamadas de APIs
-         * desnecessarias.
-         */
+        scr_printf("Erro ao inicializar o controle.\n");
+        scr_printf("\n");
+        scr_printf("Pressione RESET para sair.\n");
+
         while (1)
         {
+            SleepThread();
         }
     }
 
     /*
-     * Inicializa a interface grafica.
+     * Inicializa a interface.
      */
     ui_init();
 
@@ -40,11 +41,16 @@ int main(int argc, char *argv[])
      */
     while (1)
     {
+        input_update();
         ui_update();
         ui_render();
+
+        /*
+         * Pequena pausa para nao ocupar 100%% da CPU.
+         */
+        DelayThread(10000);
     }
 
-    ui_shutdown();
     input_shutdown();
 
     return 0;
