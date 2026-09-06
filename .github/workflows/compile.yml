@@ -5,46 +5,25 @@ on:
     branches:
       - main
       - master
-
   workflow_dispatch:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
     name: Build PS2 ELF
-
     runs-on: ubuntu-latest
 
     container:
       image: ghcr.io/ps2dev/ps2dev:latest
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Instalar ferramentas
+      - name: Preparar ambiente
         shell: sh
         run: |
           apk add --no-cache make
 
-          echo "========================================"
-          echo "FERRAMENTAS"
-          echo "========================================"
-
-          echo "make:"
-          command -v make
-          make --version
-
-          echo ""
-          echo "bin2s:"
-          command -v bin2s || true
-
-      - name: Preparar ambiente PS2DEV
-        shell: sh
-        run: |
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
           export GSKIT=$PS2DEV/gsKit
@@ -57,11 +36,14 @@ jobs:
 
           echo "PS2DEV=$PS2DEV"
           echo "PS2SDK=$PS2SDK"
-          echo "GSKIT=$GSKIT"
 
           echo ""
           echo "Compilador:"
           command -v mips64r5900el-ps2-elf-gcc
+
+          echo ""
+          echo "Make:"
+          command -v make
 
           echo ""
           echo "bin2s:"
@@ -77,20 +59,9 @@ jobs:
           echo "ARQUIVOS DE REDE"
           echo "========================================"
 
-          echo ""
-          echo "DEV9:"
           ls -lh "$PS2SDK/iop/irx/ps2dev9.irx"
-
-          echo ""
-          echo "NETMAN:"
           ls -lh "$PS2SDK/iop/irx/netman.irx"
-
-          echo ""
-          echo "SMAP:"
           ls -lh "$PS2SDK/iop/irx/smap.irx"
-
-          echo ""
-          echo "PS2IP:"
           ls -lh "$PS2SDK/iop/irx/ps2ip.irx"
 
       - name: Limpar
@@ -98,10 +69,9 @@ jobs:
         run: |
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
+          export GSKIT=$PS2DEV/gsKit
 
-          echo "========================================"
-          echo "LIMPANDO"
-          echo "========================================"
+          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
 
           make clean || true
 
@@ -112,7 +82,7 @@ jobs:
           export PS2SDK=$PS2DEV/ps2sdk
           export GSKIT=$PS2DEV/gsKit
 
-          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2SDK/bin:$PATH
+          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
 
           echo "========================================"
           echo "COMPILANDO OPL NEXT"
@@ -121,3 +91,24 @@ jobs:
           make
 
       - name: Verificar ELF
+        shell: sh
+        run: |
+          echo "========================================"
+          echo "VERIFICANDO ELF"
+          echo "========================================"
+
+          if [ ! -f OPL_NEXT_BETA.ELF ]; then
+            echo "ERRO: ELF nao foi gerado!"
+            exit 1
+          fi
+
+          echo ""
+          echo "ELF GERADO COM SUCESSO:"
+          ls -lh OPL_NEXT_BETA.ELF
+
+      - name: Publicar ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: OPL_NEXT_BETA_ELF
+          path: OPL_NEXT_BETA.ELF
+          if-no-files-found: error
