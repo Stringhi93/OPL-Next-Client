@@ -4,10 +4,10 @@
 #include <string.h>
 
 #include <kernel.h>
-#include <debug.h>
 #include <sifrpc.h>
 #include <loadfile.h>
 #include <sbv_patches.h>
+#include <debug.h>
 
 #include <netman.h>
 #include <ps2ip.h>
@@ -17,9 +17,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-/*
- * Drivers IRX incorporados pelo bin2c.
- */
 extern unsigned char DEV9_irx[];
 extern unsigned int size_DEV9_irx;
 
@@ -30,15 +27,96 @@ extern unsigned char SMAP_irx[];
 extern unsigned int size_SMAP_irx;
 
 static int initialized = 0;
-static int link_ready = 0;
+
+static network_config_t config =
+{
+    {192, 168, 1, 20},
+    {255, 255, 255, 0},
+    {192, 168, 1, 1},
+    {192, 168, 1, 1},
+
+    {192, 168, 1, 8},
+
+    445,
+    80,
+    21
+};
+
+static void copy_ip(
+    struct ip4_addr *dst,
+    const int src[4]
+)
+{
+    IP4_ADDR(
+        dst,
+        src[0],
+        src[1],
+        src[2],
+        src[3]
+    );
+}
+
+static int load_network_modules(void)
+{
+    int ret;
+
+    scr_printf("NET: carregando DEV9...\n");
+
+    ret = SifExecModuleBuffer(
+        DEV9_irx,
+        size_DEV9_irx,
+        0,
+        NULL,
+        NULL
+    );
+
+    if (ret < 0)
+    {
+        scr_printf("NET: DEV9 ERRO %d\n", ret);
+        return 0;
+    }
+
+    scr_printf("NET: carregando NETMAN...\n");
+
+    ret = SifExecModuleBuffer(
+        NETMAN_irx,
+        size_NETMAN_irx,
+        0,
+        NULL,
+        NULL
+    );
+
+    if (ret < 0)
+    {
+        scr_printf("NET: NETMAN ERRO %d\n", ret);
+        return 0;
+    }
+
+    scr_printf("NET: carregando SMAP...\n");
+
+    ret = SifExecModuleBuffer(
+        SMAP_irx,
+        size_SMAP_irx,
+        0,
+        NULL,
+        NULL
+    );
+
+    if (ret < 0)
+    {
+        scr_printf("NET: SMAP ERRO %d\n", ret);
+        return 0;
+    }
+
+    return 1;
+}
 
 int network_init(void)
 {
     struct ip4_addr ip;
     struct ip4_addr netmask;
     struct ip4_addr gateway;
-
-    int result;
+    struct ip4_addr dns;
 
     if (initialized)
         return 1;
@@ -48,193 +126,162 @@ int network_init(void)
     scr_printf("========================================\n");
 
     /*
-     * Permite executar os IRX diretamente da memoria.
+     * Permite execucao de IRX a partir da memoria EE.
      */
     sbv_patch_enable_lmb();
 
-    /*
-     * DEV9
-     */
-    scr_printf("Carregando DEV9...\n");
+    if (!load_network_modules())
+        return 0;
 
-    result = SifExecModuleBuffer(
-        DEV9_irx,
-        size_DEV9_irx,
-        0,
-        NULL,
-        NULL
-    );
-
-    if (result < 0)
+    if (NetManInit() < 0)
     {
-        scr_printf("ERRO: DEV9\n");
+        scr_printf("NET: NetManInit ERRO\n");
         return 0;
     }
 
-    scr_printf("DEV9 OK\n");
+    copy_ip(&ip, config.ip);
+    copy_ip(&netmask, config.netmask);
+    copy_ip(&gateway, config.gateway);
+    copy_ip(&dns, config.dns);
 
     /*
-     * NETMAN
+     * TCP/IP com configuracao estatica.
      */
-    scr_printf("Carregando NETMAN...\n");
-
-    result = SifExecModuleBuffer(
-        NETMAN_irx,
-        size_NETMAN_irx,
-        0,
-        NULL,
-        NULL
-    );
-
-    if (result < 0)
+    if (ps2ipInit(
+            &ip,
+            &netmask,
+            &gateway
+        ) < 0)
     {
-        scr_printf("ERRO: NETMAN\n");
-        return 0;
-    }
-
-    scr_printf("NETMAN OK\n");
-
-    /*
-     * SMAP
-     */
-    scr_printf("Carregando SMAP...\n");
-
-    result = SifExecModuleBuffer(
-        SMAP_irx,
-        size_SMAP_irx,
-        0,
-        NULL,
-        NULL
-    );
-
-    if (result < 0)
-    {
-        scr_printf("ERRO: SMAP\n");
-        return 0;
-    }
-
-    scr_printf("SMAP OK\n");
-
-    /*
-     * Inicializa NETMAN.
-     */
-    scr_printf("Inicializando NETMAN...\n");
-
-    result = NetManInit();
-
-    if (result < 0)
-    {
-        scr_printf("ERRO: NetManInit\n");
-        return 0;
-    }
-
-    scr_printf("NETMAN INIT OK\n");
-
-    /*
-     * Configuracao de rede.
-     *
-     * PS2: 192.168.1.20
-     * PC:  192.168.1.8
-     * GW:  192.168.1.1
-     */
-    IP4_ADDR(&ip, 192, 168, 1, 20);
-    IP4_ADDR(&netmask, 255, 255, 255, 0);
-    IP4_ADDR(&gateway, 192, 168, 1, 1);
-
-    /*
-     * Inicializa TCP/IP.
-     */
-    scr_printf("Inicializando TCP/IP...\n");
-
-    result = ps2ipInit(
-        &ip,
-        &netmask,
-        &gateway
-    );
-
-    if (result < 0)
-    {
-        scr_printf("ERRO: ps2ipInit\n");
-
+        scr_printf("NET: ps2ipInit ERRO\n");
         NetManDeinit();
-
         return 0;
     }
 
-    scr_printf("TCP/IP OK\n");
+    dns_setserver(0, &dns);
 
     /*
      * Auto-negociacao Ethernet.
      */
-    result = NetManSetLinkMode(
-        NETMAN_NETIF_ETH_LINK_MODE_AUTO
-    );
-
-    if (result != 0)
+    if (NetManSetLinkMode(
+            NETMAN_NETIF_ETH_LINK_MODE_AUTO
+        ) != 0)
     {
-        scr_printf("AVISO: falha ao configurar link\n");
+        scr_printf("NET: aviso - link mode\n");
     }
 
-    /*
-     * Inicializacao concluida.
-     */
     initialized = 1;
 
-    /*
-     * Verifica o link.
-     */
-    if (NetManIoctl(
-            NETMAN_NETIF_IOCTL_GET_LINK_STATUS,
-            NULL,
-            0,
-            NULL,
-            0
-        ) == NETMAN_NETIF_ETH_LINK_STATE_UP)
-    {
-        link_ready = 1;
-    }
-    else
-    {
-        link_ready = 0;
-    }
-
-    scr_printf("----------------------------------------\n");
-    scr_printf("IP PS2: 192.168.1.20\n");
-
-    if (link_ready)
-        scr_printf("LINK: CONECTADO\n");
-    else
-        scr_printf("LINK: DESCONECTADO\n");
-
-    scr_printf("========================================\n");
+    scr_printf(
+        "NET: IP %d.%d.%d.%d\n",
+        config.ip[0],
+        config.ip[1],
+        config.ip[2],
+        config.ip[3]
+    );
 
     return 1;
 }
 
 int network_is_ready(void)
 {
-    int status;
+    if (!initialized)
+        return 0;
+
+    return (
+        NetManIoctl(
+            NETMAN_NETIF_IOCTL_GET_LINK_STATUS,
+            NULL,
+            0,
+            NULL,
+            0
+        ) == NETMAN_NETIF_ETH_LINK_STATE_UP
+    );
+}
+
+void network_get_config(network_config_t *out)
+{
+    if (out == NULL)
+        return;
+
+    memcpy(
+        out,
+        &config,
+        sizeof(network_config_t)
+    );
+}
+
+int network_set_config(const network_config_t *new_config)
+{
+    struct ip4_addr ip;
+    struct ip4_addr netmask;
+    struct ip4_addr gateway;
+    struct ip4_addr dns;
+
+    if (new_config == NULL)
+        return -1;
+
+    memcpy(
+        &config,
+        new_config,
+        sizeof(network_config_t)
+    );
 
     if (!initialized)
         return 0;
 
-    status = NetManIoctl(
-        NETMAN_NETIF_IOCTL_GET_LINK_STATUS,
-        NULL,
-        0,
-        NULL,
-        0
-    );
+    copy_ip(&ip, config.ip);
+    copy_ip(&netmask, config.netmask);
+    copy_ip(&gateway, config.gateway);
+    copy_ip(&dns, config.dns);
 
-    if (status == NETMAN_NETIF_ETH_LINK_STATE_UP)
-        link_ready = 1;
-    else
-        link_ready = 0;
+    if (ps2ip_getconfig("sm0", NULL) < 0)
+    {
+        /*
+         * Alguns builds nao aceitam NULL.
+         * O teste real sera feito abaixo pelo setconfig.
+         */
+    }
 
-    return link_ready;
+    /*
+     * Reaplica a configuracao.
+     */
+    {
+        t_ip_info info;
+
+        if (ps2ip_getconfig("sm0", &info) < 0)
+            return -2;
+
+        ip_addr_set(
+            (struct ip4_addr *)&info.ipaddr,
+            &ip
+        );
+
+        ip_addr_set(
+            (struct ip4_addr *)&info.netmask,
+            &netmask
+        );
+
+        ip_addr_set(
+            (struct ip4_addr *)&info.gw,
+            &gateway
+        );
+
+        info.dhcp_enabled = 0;
+
+        if (ps2ip_setconfig(&info) < 0)
+            return -3;
+    }
+
+    dns_setserver(0, &dns);
+
+    return 0;
 }
 
-int network_test_server(const char *ip, int port)
+int network_test_server(
+    const char *ip,
+    int port
+)
 {
     int sock;
     int result;
@@ -247,12 +294,12 @@ int network_test_server(const char *ip, int port)
     if (!network_is_ready())
         return -2;
 
-    if (ip == NULL)
-        return -3;
+    memset(
+        &server,
+        0,
+        sizeof(server)
+    );
 
-    /*
-     * Cria socket TCP.
-     */
     sock = socket(
         AF_INET,
         SOCK_STREAM,
@@ -260,53 +307,81 @@ int network_test_server(const char *ip, int port)
     );
 
     if (sock < 0)
-    {
-        scr_printf("ERRO: socket()\n");
         return -3;
-    }
-
-    /*
-     * Limpa estrutura.
-     */
-    memset(
-        &server,
-        0,
-        sizeof(server)
-    );
 
     server.sin_family = AF_INET;
     server.sin_port = htons(port);
     server.sin_addr.s_addr = inet_addr(ip);
 
-    scr_printf(
-        "Testando servidor %s:%d...\n",
-        ip,
-        port
-    );
-
-    /*
-     * Conecta.
-     */
     result = connect(
         sock,
         (struct sockaddr *)&server,
         sizeof(server)
     );
 
-    /*
-     * Fecha socket.
-     */
     close(sock);
 
     if (result < 0)
-    {
-        scr_printf("CONEXAO: FALHOU\n");
         return -4;
-    }
-
-    scr_printf("CONEXAO: OK\n");
 
     return 0;
+}
+
+int network_test_smb(void)
+{
+    char ip[32];
+
+    sprintf(
+        ip,
+        "%d.%d.%d.%d",
+        config.server[0],
+        config.server[1],
+        config.server[2],
+        config.server[3]
+    );
+
+    return network_test_server(
+        ip,
+        config.smb_port
+    );
+}
+
+int network_test_http(void)
+{
+    char ip[32];
+
+    sprintf(
+        ip,
+        "%d.%d.%d.%d",
+        config.server[0],
+        config.server[1],
+        config.server[2],
+        config.server[3]
+    );
+
+    return network_test_server(
+        ip,
+        config.http_port
+    );
+}
+
+int network_test_ftp(void)
+{
+    char ip[32];
+
+    sprintf(
+        ip,
+        "%d.%d.%d.%d",
+        config.server[0],
+        config.server[1],
+        config.server[2],
+        config.server[3]
+    );
+
+    return network_test_server(
+        ip,
+        config.ftp_port
+    );
 }
 
 void network_shutdown(void)
@@ -314,14 +389,8 @@ void network_shutdown(void)
     if (!initialized)
         return;
 
-    scr_printf("Desligando rede...\n");
-
     ps2ipDeinit();
-
     NetManDeinit();
 
     initialized = 0;
-    link_ready = 0;
-
-    scr_printf("Rede desligada.\n");
 }
