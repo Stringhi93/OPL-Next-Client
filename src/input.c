@@ -10,10 +10,10 @@
 #define PAD_SLOT 0
 
 static unsigned char *pad_buffer = NULL;
-
 static struct padButtonStatus pad_status;
 
 static InputState current;
+
 static unsigned short previous_buttons = 0;
 
 static int pad_open = 0;
@@ -22,18 +22,14 @@ static int initialized = 0;
 static unsigned short pad_buttons(void)
 {
     /*
-     * libpad reports buttons as active-low.
-     * Convert them to active-high for the application.
+     * O libpad usa logica ativa em nivel baixo.
+     * Convertemos para nivel alto para o programa.
      */
     return (unsigned short)(0xFFFF ^ pad_status.btns);
 }
 
-static int pressed(unsigned short buttons, unsigned short mask)
-{
-    return (buttons & mask) != 0;
-}
-
-static int just_pressed(unsigned short buttons, unsigned short mask)
+static int just_pressed(unsigned short buttons,
+                        unsigned short mask)
 {
     return ((buttons & mask) != 0) &&
            ((previous_buttons & mask) == 0);
@@ -42,30 +38,36 @@ static int just_pressed(unsigned short buttons, unsigned short mask)
 int input_init(void)
 {
     /*
-     * Initialize SIF RPC because libpad communicates
-     * with the IOP through RPC.
+     * Inicializa comunicacao EE <-> IOP.
      */
     sceSifInitRpc(0);
 
+    /*
+     * Inicializa o sistema de controle.
+     */
     if (!padInit(0))
     {
         return 0;
     }
 
     /*
-     * libpad requires an aligned 256-byte area.
-     * 64-byte alignment is safe for current PS2SDK.
+     * Area de trabalho exigida pelo libpad.
      */
     pad_buffer = (unsigned char *)memalign(64, 256);
 
     if (pad_buffer == NULL)
     {
+        padEnd();
         return 0;
     }
 
     memset(pad_buffer, 0, 256);
+    memset(&pad_status, 0, sizeof(pad_status));
     memset(&current, 0, sizeof(current));
 
+    /*
+     * Abre porta 1, slot 1.
+     */
     pad_open = padPortOpen(
         PAD_PORT,
         PAD_SLOT,
@@ -76,11 +78,12 @@ int input_init(void)
     {
         free(pad_buffer);
         pad_buffer = NULL;
+        padEnd();
         return 0;
     }
 
     /*
-     * Request DualShock mode when available.
+     * Tenta colocar o controle em modo DualShock.
      */
     padSetMainMode(
         PAD_PORT,
@@ -89,6 +92,12 @@ int input_init(void)
         0
     );
 
+    /*
+     * Nao consideramos o controle pronto imediatamente.
+     * O libpad precisa de algum tempo para inicializar.
+     */
+    previous_buttons = 0;
+
     initialized = 1;
 
     return 1;
@@ -96,21 +105,31 @@ int input_init(void)
 
 void input_update(void)
 {
+    int state;
     unsigned short buttons;
 
     if (!initialized)
         return;
 
     /*
-     * Controller may still be initializing.
+     * Verifica o estado atual do controle.
      */
-    if (padGetState(PAD_PORT, PAD_SLOT) != PAD_STATE_STABLE)
+    state = padGetState(PAD_PORT, PAD_SLOT);
+
+    /*
+     * Enquanto o controle estiver inicializando,
+     * nao geramos comandos.
+     */
+    if (state != PAD_STATE_STABLE)
     {
         memset(&current, 0, sizeof(current));
         previous_buttons = 0;
         return;
     }
 
+    /*
+     * Leitura real do controle.
+     */
     if (!padRead(PAD_PORT, PAD_SLOT, &pad_status))
     {
         memset(&current, 0, sizeof(current));
@@ -119,10 +138,13 @@ void input_update(void)
 
     buttons = pad_buttons();
 
+    /*
+     * Limpa os eventos deste frame.
+     */
     memset(&current, 0, sizeof(current));
 
     /*
-     * Directional buttons are reported continuously.
+     * Direcionais.
      */
     current.up =
         just_pressed(buttons, PAD_UP);
@@ -137,7 +159,7 @@ void input_update(void)
         just_pressed(buttons, PAD_RIGHT);
 
     /*
-     * Face buttons.
+     * Botoes principais.
      */
     current.cross =
         just_pressed(buttons, PAD_CROSS);
@@ -152,7 +174,7 @@ void input_update(void)
         just_pressed(buttons, PAD_TRIANGLE);
 
     /*
-     * System buttons.
+     * START / SELECT.
      */
     current.start =
         just_pressed(buttons, PAD_START);
@@ -161,7 +183,7 @@ void input_update(void)
         just_pressed(buttons, PAD_SELECT);
 
     /*
-     * Shoulder buttons.
+     * Ombros.
      */
     current.l1 =
         just_pressed(buttons, PAD_L1);
@@ -175,6 +197,9 @@ void input_update(void)
     current.r2 =
         just_pressed(buttons, PAD_R2);
 
+    /*
+     * Guarda o estado para detectar o proximo pressionamento.
+     */
     previous_buttons = buttons;
 }
 
@@ -186,7 +211,7 @@ void input_shutdown(void)
         pad_open = 0;
     }
 
-    if (pad_buffer)
+    if (pad_buffer != NULL)
     {
         free(pad_buffer);
         pad_buffer = NULL;
@@ -197,6 +222,9 @@ void input_shutdown(void)
         padEnd();
         initialized = 0;
     }
+
+    memset(&current, 0, sizeof(current));
+    previous_buttons = 0;
 }
 
 const InputState *input_get(void)
