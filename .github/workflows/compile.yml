@@ -64,6 +64,29 @@ jobs:
           echo "Make:"
           command -v make
 
+          echo ""
+          echo "========================================"
+          echo "LOCALIZANDO GSKIT"
+          echo "========================================"
+
+          echo ""
+          echo "Conteudo de PS2DEV:"
+          ls -la "$PS2DEV" || true
+
+          echo ""
+          echo "Procurando gsKit.h:"
+          find "$PS2DEV" -name "gsKit.h" -print 2>/dev/null || true
+
+          echo ""
+          echo "Procurando libgskit:"
+          find "$PS2DEV" \
+            \( \
+              -name "libgskit.a" \
+              -o -name "libgskit_toolkit.a" \
+              -o -name "libdmakit.a" \
+            \) \
+            -print 2>/dev/null || true
+
       - name: Limpar
         shell: sh
         run: |
