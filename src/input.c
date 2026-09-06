@@ -5,17 +5,68 @@
 
 #include <kernel.h>
 #include <sifrpc.h>
+#include <loadfile.h>
 #include <debug.h>
 #include <libpad.h>
 
 #define PAD_PORT 0
 #define PAD_SLOT 0
 
+/*
+ * Esses dois IRX sao gerados pelo Makefile
+ * e ficam embutidos no ELF.
+ */
+extern unsigned char SIO2MAN_irx[];
+extern unsigned int size_SIO2MAN_irx;
+
+extern unsigned char PADMAN_irx[];
+extern unsigned int size_PADMAN_irx;
+
 static int initialized = 0;
 
-static unsigned int current_buttons = 0xFFFF;
+static unsigned short old_buttons = 0xFFFF;
+static unsigned short current_buttons = 0xFFFF;
 
-static char padBuf[256] __attribute__((aligned(64)));
+static unsigned char padBuf[256] __attribute__((aligned(64)));
+
+static int load_pad_modules(void)
+{
+    int ret;
+
+    scr_printf("PAD: carregando SIO2MAN...\n");
+
+    ret = SifExecModuleBuffer(
+        SIO2MAN_irx,
+        size_SIO2MAN_irx,
+        0,
+        NULL,
+        NULL
+    );
+
+    if (ret < 0)
+    {
+        scr_printf("PAD: SIO2MAN ERRO %d\n", ret);
+        return 0;
+    }
+
+    scr_printf("PAD: carregando PADMAN...\n");
+
+    ret = SifExecModuleBuffer(
+        PADMAN_irx,
+        size_PADMAN_irx,
+        0,
+        NULL,
+        NULL
+    );
+
+    if (ret < 0)
+    {
+        scr_printf("PAD: PADMAN ERRO %d\n", ret);
+        return 0;
+    }
+
+    return 1;
+}
 
 void input_init(void)
 {
@@ -29,13 +80,19 @@ void input_init(void)
     scr_printf("INPUT: inicializando...\n");
 
     /*
-     * Inicializa o sistema de controle.
+     * Os drivers do controle sao IOP modules.
+     */
+    if (!load_pad_modules())
+        return;
+
+    /*
+     * Inicializa libpad.
      */
     ret = padInit(0);
 
-    if (ret < 0)
+    if (ret <= 0)
     {
-        scr_printf("INPUT: padInit ERRO\n");
+        scr_printf("INPUT: padInit ERRO %d\n", ret);
         return;
     }
 
@@ -46,7 +103,7 @@ void input_init(void)
     );
 
     /*
-     * Abre controle na porta 0, slot 0.
+     * Abre porta 0 / slot 0.
      */
     ret = padPortOpen(
         PAD_PORT,
@@ -54,16 +111,19 @@ void input_init(void)
         padBuf
     );
 
-    if (ret == 0)
+    if (ret <= 0)
     {
-        scr_printf("INPUT: CONTROLE NAO ENCONTRADO\n");
+        scr_printf("INPUT: padPortOpen ERRO\n");
+        padEnd();
         return;
     }
 
-    scr_printf("INPUT: aguardando controle...\n");
+    scr_printf("INPUT: procurando controle...\n");
 
     /*
-     * Aguarda o controle ficar estavel.
+     * Aguarda o PADMAN detectar o controle.
+     *
+     * O estado STABLE = 6.
      */
     timeout = 0;
 
@@ -79,23 +139,18 @@ void input_init(void)
 
         if (state == PAD_STATE_DISCONN)
         {
-            scr_printf("INPUT: controle desconectado\n");
-
-            padPortClose(
-                PAD_PORT,
-                PAD_SLOT
-            );
-
-            padEnd();
-
-            return;
+            if ((timeout % 120000) == 0)
+                scr_printf("INPUT: sem controle...\n");
         }
 
         timeout++;
 
-        if (timeout > 5000000)
+        /*
+         * Evita travar eternamente a inicializacao.
+         */
+        if (timeout > 3000000)
         {
-            scr_printf("INPUT: TIMEOUT\n");
+            scr_printf("INPUT: timeout\n");
 
             padPortClose(
                 PAD_PORT,
@@ -106,12 +161,13 @@ void input_init(void)
 
             return;
         }
+
+        nopdelay();
     }
 
-    /*
-     * Controle encontrado.
-     */
     initialized = 1;
+
+    old_buttons = 0xFFFF;
     current_buttons = 0xFFFF;
 
     scr_printf("INPUT: CONTROLE OK\n");
@@ -126,20 +182,25 @@ void input_update(void)
     if (!initialized)
         return;
 
-    /*
-     * Verifica se o controle continua conectado.
-     */
     state = padGetState(
         PAD_PORT,
         PAD_SLOT
     );
 
+    if (state == PAD_STATE_DISCONN)
+    {
+        initialized = 0;
+        return;
+    }
+
+    /*
+     * O pad precisa estar STABLE para leitura.
+     */
     if (state != PAD_STATE_STABLE)
         return;
 
-    /*
-     * Le os botoes.
-     */
+    old_buttons = current_buttons;
+
     result = padRead(
         PAD_PORT,
         PAD_SLOT,
@@ -150,69 +211,85 @@ void input_update(void)
         return;
 
     /*
-     * btns:
+     * libpad define btns como unsigned short.
      *
      * 0 = pressionado
      * 1 = solto
      */
-    current_buttons = (unsigned int)status.btns;
+    current_buttons = status.btns;
 }
 
-int input_pressed(int button)
+static unsigned short get_mask(int button)
 {
-    unsigned int mask;
-
-    if (!initialized)
-        return 0;
-
     switch (button)
     {
         case INPUT_UP:
-            mask = PAD_UP;
-            break;
+            return PAD_UP;
 
         case INPUT_DOWN:
-            mask = PAD_DOWN;
-            break;
+            return PAD_DOWN;
 
         case INPUT_LEFT:
-            mask = PAD_LEFT;
-            break;
+            return PAD_LEFT;
 
         case INPUT_RIGHT:
-            mask = PAD_RIGHT;
-            break;
+            return PAD_RIGHT;
 
         case INPUT_CROSS:
-            mask = PAD_CROSS;
-            break;
+            return PAD_CROSS;
 
         case INPUT_CIRCLE:
-            mask = PAD_CIRCLE;
-            break;
+            return PAD_CIRCLE;
 
         case INPUT_START:
-            mask = PAD_START;
-            break;
+            return PAD_START;
 
         case INPUT_SELECT:
-            mask = PAD_SELECT;
-            break;
+            return PAD_SELECT;
 
         default:
             return 0;
     }
+}
+
+int input_down(int button)
+{
+    unsigned short mask;
+
+    if (!initialized)
+        return 0;
+
+    mask = get_mask(button);
+
+    if (mask == 0)
+        return 0;
+
+    return ((current_buttons & mask) == 0);
+}
+
+int input_pressed(int button)
+{
+    unsigned short mask;
+
+    if (!initialized)
+        return 0;
+
+    mask = get_mask(button);
+
+    if (mask == 0)
+        return 0;
 
     /*
-     * Retorna 1 enquanto o botao estiver pressionado.
+     * Transicao:
      *
-     * No DualShock:
-     *
-     * 0 = pressionado
-     * 1 = solto
+     * antes = solto
+     * agora = pressionado
      */
-    if ((current_buttons & mask) == 0)
+    if ((current_buttons & mask) == 0 &&
+        (old_buttons & mask) != 0)
+    {
         return 1;
+    }
 
     return 0;
 }
@@ -230,7 +307,7 @@ void input_shutdown(void)
     padEnd();
 
     initialized = 0;
-    current_buttons = 0xFFFF;
 
-    scr_printf("INPUT: desligado\n");
+    old_buttons = 0xFFFF;
+    current_buttons = 0xFFFF;
 }
