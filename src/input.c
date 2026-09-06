@@ -18,12 +18,11 @@ static unsigned int current_buttons = 0xFFFF;
 
 static char padBuf[256] __attribute__((aligned(64)));
 
-/*
- * Inicializa o controle.
- */
 void input_init(void)
 {
     int ret;
+    int state;
+    int timeout;
 
     if (initialized)
         return;
@@ -31,7 +30,7 @@ void input_init(void)
     scr_printf("INPUT: inicializando...\n");
 
     /*
-     * Inicializa o sistema do pad.
+     * Inicializa o sistema de controle.
      */
     ret = padInit(0);
 
@@ -41,9 +40,6 @@ void input_init(void)
         return;
     }
 
-    /*
-     * Limpa o buffer.
-     */
     memset(
         padBuf,
         0,
@@ -65,15 +61,18 @@ void input_init(void)
         return;
     }
 
-    /*
-     * Aguarda o controle ficar estavel.
-     */
     scr_printf("INPUT: aguardando controle...\n");
+
+    /*
+     * Aguarda o controle ser detectado.
+     *
+     * Nao usamos DelayThread(), pois algumas versoes
+     * do PS2SDK nao expoem essa funcao.
+     */
+    timeout = 0;
 
     while (1)
     {
-        int state;
-
         state = padGetState(
             PAD_PORT,
             PAD_SLOT
@@ -81,15 +80,6 @@ void input_init(void)
 
         if (state == PAD_STATE_STABLE)
             break;
-
-        if (state == PAD_STATE_FINDCTP1)
-        {
-            /*
-             * O controle ainda esta sendo detectado.
-             */
-            DelayThread(1000);
-            continue;
-        }
 
         if (state == PAD_STATE_DISCONN)
         {
@@ -105,7 +95,25 @@ void input_init(void)
             return;
         }
 
-        DelayThread(1000);
+        /*
+         * Evita ficar preso para sempre se nao houver
+         * um controle funcional.
+         */
+        timeout++;
+
+        if (timeout > 5000000)
+        {
+            scr_printf("INPUT: timeout aguardando controle\n");
+
+            padPortClose(
+                PAD_PORT,
+                PAD_SLOT
+            );
+
+            padEnd();
+
+            return;
+        }
     }
 
     initialized = 1;
@@ -116,9 +124,6 @@ void input_init(void)
     scr_printf("INPUT: CONTROLE OK\n");
 }
 
-/*
- * Atualiza o estado do controle.
- */
 void input_update(void)
 {
     struct padButtonStatus status;
@@ -128,7 +133,7 @@ void input_update(void)
         return;
 
     /*
-     * Verifica se o controle continua conectado.
+     * Verifica o estado do controle.
      */
     state = padGetState(
         PAD_PORT,
@@ -144,7 +149,7 @@ void input_update(void)
     old_buttons = current_buttons;
 
     /*
-     * Le o controle.
+     * Le os botoes.
      */
     if (padRead(
             PAD_PORT,
@@ -156,17 +161,14 @@ void input_update(void)
     }
 
     /*
-     * btns contem os botoes em 16 bits.
+     * btns e um valor de 16 bits.
      *
-     * Bit = 0 -> pressionado
-     * Bit = 1 -> solto
+     * 0 = pressionado
+     * 1 = solto
      */
     current_buttons = (unsigned int)status.btns;
 }
 
-/*
- * Retorna 1 somente quando o botao acabou de ser pressionado.
- */
 int input_pressed(int button)
 {
     unsigned int mask;
@@ -213,10 +215,8 @@ int input_pressed(int button)
     }
 
     /*
-     * Detecta a transicao:
-     *
-     * antigo = solto
-     * atual  = pressionado
+     * Detecta somente o momento em que o botao
+     * passa de solto para pressionado.
      */
     if ((current_buttons & mask) == 0 &&
         (old_buttons & mask) != 0)
@@ -227,9 +227,6 @@ int input_pressed(int button)
     return 0;
 }
 
-/*
- * Finaliza o controle.
- */
 void input_shutdown(void)
 {
     if (!initialized)
