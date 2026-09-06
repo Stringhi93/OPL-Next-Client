@@ -16,7 +16,7 @@
 #include <unistd.h>
 
 /*
- * Drivers IRX gerados pelo bin2c no Makefile.
+ * IRX gerados pelo bin2c no Makefile.
  */
 extern unsigned char DEV9_irx[];
 extern unsigned int size_DEV9_irx;
@@ -30,6 +30,10 @@ extern unsigned int size_SMAP_irx;
 static int initialized = 0;
 static int link_ready = 0;
 
+
+/*
+ * Inicializa a rede PS2.
+ */
 int network_init(void)
 {
     struct ip4_addr ip;
@@ -39,16 +43,23 @@ int network_init(void)
     if (initialized)
         return 1;
 
-    scr_printf("Inicializando rede...\n");
+    scr_printf("========================================\n");
+    scr_printf("INICIALIZANDO REDE\n");
+    scr_printf("========================================\n");
 
     /*
-     * Permite carregar os IRX a partir da memoria.
+     * Permite executar módulos IOP
+     * armazenados na memória.
      */
     sbv_patch_enable_lmb();
 
     /*
-     * Carrega os drivers.
+     * ----------------------------------------------------
+     * DEV9
+     * ----------------------------------------------------
      */
+    scr_printf("Carregando DEV9...\n");
+
     if (SifExecModuleBuffer(
             DEV9_irx,
             size_DEV9_irx,
@@ -59,6 +70,15 @@ int network_init(void)
         scr_printf("DEV9: ERRO\n");
         return 0;
     }
+
+    scr_printf("DEV9: OK\n");
+
+    /*
+     * ----------------------------------------------------
+     * NETMAN
+     * ----------------------------------------------------
+     */
+    scr_printf("Carregando NETMAN...\n");
 
     if (SifExecModuleBuffer(
             NETMAN_irx,
@@ -71,6 +91,15 @@ int network_init(void)
         return 0;
     }
 
+    scr_printf("NETMAN: OK\n");
+
+    /*
+     * ----------------------------------------------------
+     * SMAP
+     * ----------------------------------------------------
+     */
+    scr_printf("Carregando SMAP...\n");
+
     if (SifExecModuleBuffer(
             SMAP_irx,
             size_SMAP_irx,
@@ -82,44 +111,79 @@ int network_init(void)
         return 0;
     }
 
+    scr_printf("SMAP: OK\n");
+
     /*
-     * Inicializa NETMAN.
+     * ----------------------------------------------------
+     * NETMAN INIT
+     * ----------------------------------------------------
      */
+    scr_printf("Inicializando NETMAN...\n");
+
     if (NetManInit() < 0)
     {
         scr_printf("NETMAN INIT: ERRO\n");
         return 0;
     }
 
+    scr_printf("NETMAN INIT: OK\n");
+
     /*
-     * IP fixo para o primeiro teste.
+     * ----------------------------------------------------
+     * CONFIGURACAO DE REDE
+     * ----------------------------------------------------
      *
-     * PC:  192.168.1.8
-     * PS2: 192.168.1.20
+     * PC:
+     *     192.168.1.8
+     *
+     * PS2:
+     *     192.168.1.20
+     *
+     * Mascara:
+     *     255.255.255.0
+     *
+     * Gateway:
+     *     192.168.1.1
      */
     IP4_ADDR(&ip, 192, 168, 1, 20);
     IP4_ADDR(&netmask, 255, 255, 255, 0);
     IP4_ADDR(&gateway, 192, 168, 1, 1);
 
     /*
-     * Inicializa TCP/IP.
+     * ----------------------------------------------------
+     * PS2IP
+     * ----------------------------------------------------
      */
-    if (ps2ipInit(&ip, &netmask, &gateway) < 0)
+    scr_printf("Inicializando PS2IP...\n");
+
+    if (ps2ipInit(
+            &ip,
+            &netmask,
+            &gateway) < 0)
     {
         scr_printf("PS2IP: ERRO\n");
+
         NetManDeinit();
+
         return 0;
     }
+
+    scr_printf("PS2IP: OK\n");
 
     initialized = 1;
 
     /*
-     * Coloca Ethernet em auto-negociacao.
+     * ----------------------------------------------------
+     * AUTO NEGOCIACAO ETHERNET
+     * ----------------------------------------------------
      */
-    NetManSetLinkMode(NETMAN_NETIF_ETH_LINK_MODE_AUTO);
+    NetManSetLinkMode(
+        NETMAN_NETIF_ETH_LINK_MODE_AUTO);
 
     /*
-     * Verifica o link.
+     * ----------------------------------------------------
+     * VERIFICA LINK
+     * ----------------------------------------------------
      */
     if (NetManIoctl(
             NETMAN_NETIF_IOCTL_GET_LINK_STATUS,
@@ -135,16 +199,34 @@ int network_init(void)
         link_ready = 0;
     }
 
-    scr_printf("IP PS2: 192.168.1.20\n");
+    scr_printf("\n");
+    scr_printf("========================================\n");
+    scr_printf("CONFIGURACAO DE REDE\n");
+    scr_printf("========================================\n");
+
+    scr_printf("IP PS2 : 192.168.1.20\n");
+    scr_printf("PC     : 192.168.1.8\n");
+    scr_printf("MASK   : 255.255.255.0\n");
+    scr_printf("GATEWAY: 192.168.1.1\n");
 
     if (link_ready)
-        scr_printf("LINK: CONECTADO\n");
+    {
+        scr_printf("LINK   : CONECTADO\n");
+    }
     else
-        scr_printf("LINK: DESCONECTADO\n");
+    {
+        scr_printf("LINK   : DESCONECTADO\n");
+    }
+
+    scr_printf("========================================\n");
 
     return 1;
 }
 
+
+/*
+ * Verifica se o cabo/link Ethernet está ativo.
+ */
 int network_is_ready(void)
 {
     if (!initialized)
@@ -167,6 +249,18 @@ int network_is_ready(void)
     return link_ready;
 }
 
+
+/*
+ * Testa conexão TCP com um servidor.
+ *
+ * Retorno:
+ *
+ *   0  = conexão realizada
+ *  -1  = rede não inicializada
+ *  -2  = link Ethernet não está ativo
+ *  -3  = erro ao criar socket
+ *  -4  = erro ao conectar
+ */
 int network_test_server(const char *ip, int port)
 {
     int sock;
@@ -180,25 +274,35 @@ int network_test_server(const char *ip, int port)
     if (!network_is_ready())
         return -2;
 
+    /*
+     * Cria socket TCP.
+     */
     sock = socket(
         AF_INET,
         SOCK_STREAM,
-        IPPROTO_TCP
-    );
+        IPPROTO_TCP);
 
     if (sock < 0)
         return -3;
 
+    /*
+     * Limpa a estrutura.
+     */
     server.sin_family = AF_INET;
     server.sin_port = htons(port);
     server.sin_addr.s_addr = inet_addr(ip);
 
+    /*
+     * Tenta conectar.
+     */
     result = connect(
         sock,
         (struct sockaddr *)&server,
-        sizeof(server)
-    );
+        sizeof(server));
 
+    /*
+     * Fecha socket.
+     */
     close(sock);
 
     if (result < 0)
@@ -207,6 +311,10 @@ int network_test_server(const char *ip, int port)
     return 0;
 }
 
+
+/*
+ * Desliga a rede.
+ */
 void network_shutdown(void)
 {
     if (!initialized)
