@@ -46,9 +46,11 @@ int main(int argc, char *argv[])
         ui_render();
 
         /*
-         * Pequena pausa para nao ocupar 100%% da CPU.
+         * SleepThread nao usa DelayThread.
+         * O loop continua funcionando sem depender
+         * de uma funcao que nao existe neste PS2SDK.
          */
-        DelayThread(10000);
+        SleepThread();
     }
 
     input_shutdown();
