@@ -19,20 +19,36 @@ EE_LIBS = \
 
 all: $(EE_BIN)
 
+# ============================================================
+# IRX EMBUTIDOS
+# ============================================================
+
+src/DEV9_irx.c: $(PS2SDK)/iop/irx/ps2dev9.irx
+	@echo "Gerando DEV9_irx.c..."
+	bin2c $< $@ DEV9_irx
+
+src/NETMAN_irx.c: $(PS2SDK)/iop/irx/netman.irx
+	@echo "Gerando NETMAN_irx.c..."
+	bin2c $< $@ NETMAN_irx
+
+src/SMAP_irx.c: $(PS2SDK)/iop/irx/smap.irx
+	@echo "Gerando SMAP_irx.c..."
+	bin2c $< $@ SMAP_irx
+
+# ============================================================
+# LIMPEZA
+# ============================================================
+
 clean:
-	rm -f $(EE_BIN) $(EE_OBJS)
+	rm -f $(EE_BIN)
+	rm -f $(EE_OBJS)
 	rm -f src/DEV9_irx.c
 	rm -f src/NETMAN_irx.c
 	rm -f src/SMAP_irx.c
 
-src/DEV9_irx.c: $(PS2SDK)/iop/irx/ps2dev9.irx
-	bin2c $< src/DEV9_irx.c DEV9_irx
-
-src/NETMAN_irx.c: $(PS2SDK)/iop/irx/netman.irx
-	bin2c $< src/NETMAN_irx.c NETMAN_irx
-
-src/SMAP_irx.c: $(PS2SDK)/iop/irx/smap.irx
-	bin2c $< src/SMAP_irx.c SMAP_irx
+# ============================================================
+# PS2SDK
+# ============================================================
 
 include $(PS2SDK)/samples/Makefile.pref
 include $(PS2SDK)/samples/Makefile.eeglobal
