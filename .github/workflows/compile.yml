@@ -1,64 +1,64 @@
-name: Verificar ferramentas PS2SDK
+name: Procurar metodo IRX
 
 on:
   workflow_dispatch:
 
 jobs:
   check:
-    name: Verificar ferramentas
+    name: Procurar exemplos IRX
     runs-on: ubuntu-latest
 
     container:
       image: ghcr.io/ps2dev/ps2dev:latest
 
     steps:
-      - name: Verificar ambiente
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Procurar exemplos
         shell: sh
         run: |
           export PS2DEV=/usr/local/ps2dev
           export PS2SDK=$PS2DEV/ps2sdk
 
-          export PATH=/usr/local/bin:/usr/bin:/bin:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH
-
           echo "========================================"
-          echo "FERRAMENTAS PS2SDK"
+          echo "PROCURANDO SIFEXECCMODULEBUFFER"
           echo "========================================"
 
-          echo ""
-          echo "bin2s:"
-          command -v bin2s || echo "NAO ENCONTRADO"
+          grep -R "SifExecModuleBuffer" \
+            "$PS2SDK/samples" \
+            "$PS2SDK" \
+            2>/dev/null | head -50 || true
 
           echo ""
-          echo "bin2obj:"
-          command -v bin2obj || echo "NAO ENCONTRADO"
+          echo "========================================"
+          echo "PROCURANDO addbin"
+          echo "========================================"
 
-          echo ""
-          echo "elf2irx:"
-          command -v elf2irx || echo "NAO ENCONTRADO"
-
-          echo ""
-          echo "ps2-packer:"
-          command -v ps2-packer || echo "NAO ENCONTRADO"
-
-          echo ""
-          echo "tools:"
-          find "$PS2DEV" -type f -perm -111 \
-            \( -name 'bin2s' \
-            -o -name 'bin2obj' \
-            -o -name 'elf2irx' \
-            -o -name 'ps2-packer' \) \
+          find "$PS2DEV" \
+            -type f \
+            \( -iname '*addbin*' -o -iname '*bin2*' \) \
             -print 2>/dev/null || true
 
           echo ""
           echo "========================================"
-          echo "IRX DISPONIVEIS"
+          echo "PROCURANDO EMBED"
           echo "========================================"
 
-          find "$PS2SDK/iop/irx" -maxdepth 1 -type f \
-            \( -name '*.irx' \) \
-            -print | sort
+          grep -R -i "embedded.*irx\|irx.*embedded" \
+            "$PS2SDK/samples" \
+            2>/dev/null | head -50 || true
 
           echo ""
           echo "========================================"
-          echo "VERIFICACAO CONCLUIDA"
+          echo "MAKEFILES COM IRX"
+          echo "========================================"
+
+          grep -R -l "\.irx" \
+            "$PS2SDK/samples" \
+            2>/dev/null | head -50 || true
+
+          echo ""
+          echo "========================================"
+          echo "FIM"
           echo "========================================"
