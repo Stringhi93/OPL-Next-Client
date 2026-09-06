@@ -1,7 +1,5 @@
 #include <stdio.h>
-#include <kernel.h>
 #include <sifrpc.h>
-#include <debug.h>
 
 #include "input.h"
 #include "ui.h"
@@ -12,49 +10,30 @@ int main(int argc, char *argv[])
     (void)argv;
 
     /*
-     * Inicializa o sistema RPC do PS2.
+     * Inicializa RPC.
      */
     sceSifInitRpc(0);
 
     /*
-     * Inicializa o sistema de controle.
+     * Inicializa o controle.
      */
     if (!input_init())
     {
-        init_scr();
-        scr_clear();
-
-        scr_printf("\n");
-        scr_printf("============================================================\n");
-        scr_printf("                    OPL NEXT CLIENT                         \n");
-        scr_printf("============================================================\n\n");
-
-        scr_printf("ERRO: nao foi possivel inicializar o controle.\n\n");
-
-        scr_printf("Verifique se o DualShock 2 esta conectado\n");
-        scr_printf("na porta 1 do PlayStation 2.\n\n");
-
-        scr_printf("O programa continuara executando.\n");
-
+        /*
+         * Nao usamos mais debug screen nesta versao.
+         * Se o controle falhar, simplesmente permanecemos
+         * no programa para evitar chamadas de APIs
+         * desnecessarias.
+         */
         while (1)
         {
-            /*
-             * Mantem o ELF executando.
-             */
         }
-
-        return 1;
     }
 
     /*
-     * Inicializa a interface.
+     * Inicializa a interface grafica.
      */
     ui_init();
-
-    /*
-     * Desenha a primeira tela.
-     */
-    ui_render();
 
     /*
      * Loop principal.
@@ -62,13 +41,9 @@ int main(int argc, char *argv[])
     while (1)
     {
         ui_update();
-
         ui_render();
     }
 
-    /*
-     * Nunca deve chegar aqui.
-     */
     ui_shutdown();
     input_shutdown();
 
