@@ -1,6 +1,11 @@
 #include <stdio.h>
-#include <debug.h>
+
+#include <kernel.h>
 #include <sifrpc.h>
+#include <iopcontrol.h>
+#include <loadfile.h>
+#include <sbv_patches.h>
+#include <debug.h>
 
 #include "input.h"
 #include "ui.h"
@@ -12,51 +17,74 @@ int main(int argc, char *argv[])
     (void)argv;
 
     /*
-     * Inicializa RPC.
+     * Reinicia o IOP para iniciar em estado limpo.
      */
     SifInitRpc(0);
 
+    while (!SifIopReset("", 0))
+        ;
+
+    while (!SifIopSync())
+        ;
+
     /*
-     * Inicializa tela.
+     * Inicializa servicos SIF.
+     */
+    SifInitRpc(0);
+
+    SifLoadFileInit();
+
+    sbv_patch_enable_lmb();
+
+    /*
+     * Tela.
      */
     init_scr();
     scr_clear();
 
+    scr_printf("========================================\n");
+    scr_printf("          OPL NEXT CLIENT\n");
+    scr_printf("========================================\n\n");
+
     /*
-     * Inicializa controle.
+     * Controle.
      */
     input_init();
 
     /*
-     * Inicializa rede.
+     * Rede.
      */
-    if (!network_init())
-    {
-        scr_printf("ERRO: falha ao inicializar rede.\n");
-        scr_printf("Pressione START para continuar.\n");
-    }
+    network_init();
 
     /*
-     * Inicializa interface.
+     * Interface.
      */
     ui_init();
 
     /*
      * Loop principal.
-     *
-     * ui_update() ja chama input_update().
      */
     while (1)
     {
+        input_update();
+
         ui_update();
+
         ui_render();
+
+        /*
+         * Evita consumir 100% da EE.
+         */
+        nopdelay();
     }
 
     /*
-     * Limpeza.
+     * Normalmente nunca chega aqui.
      */
     network_shutdown();
     input_shutdown();
+
+    SifExitRpc();
 
     return 0;
 }
