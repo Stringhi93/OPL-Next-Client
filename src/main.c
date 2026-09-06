@@ -2,58 +2,48 @@
 #include <debug.h>
 #include <kernel.h>
 
-#include "input.h"
-#include "ui.h"
-
 int main(int argc, char *argv[])
 {
+    int blink = 0;
+
     (void)argc;
     (void)argv;
 
-    /*
-     * Inicializa a tela de texto do PS2SDK.
-     */
     init_scr();
     scr_clear();
 
-    /*
-     * Inicializa o controle.
-     */
-    if (!input_init())
-    {
-        scr_printf("Erro ao inicializar o controle.\n");
-        scr_printf("\n");
-        scr_printf("Pressione RESET para sair.\n");
-
-        while (1)
-        {
-            SleepThread();
-        }
-    }
-
-    /*
-     * Inicializa a interface.
-     */
-    ui_init();
-
-    /*
-     * Loop principal.
-     */
     while (1)
     {
-        input_update();
-        ui_update();
-        ui_render();
+        scr_clear();
+
+        scr_printf("\n\n");
+        scr_printf("========================================\n");
+        scr_printf("\n");
+        scr_printf("                 P S 2\n");
+        scr_printf("\n");
+
+        if (blink)
+        {
+            scr_printf("                 [ ]\n");
+        }
+        else
+        {
+            scr_printf("                  \n");
+        }
+
+        scr_printf("\n");
+        scr_printf("            OPL NEXT\n");
+        scr_printf("\n");
+        scr_printf("========================================\n");
+
+        blink = !blink;
 
         /*
-         * SleepThread nao usa DelayThread.
-         * O loop continua funcionando sem depender
-         * de uma funcao que nao existe neste PS2SDK.
+         * SleepThread coloca a thread para dormir.
+         * Nao depende de DelayThread.
          */
         SleepThread();
     }
-
-    input_shutdown();
 
     return 0;
 }
