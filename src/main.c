@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <debug.h>
-#include <kernel.h>
 #include <sifrpc.h>
 
 #include "input.h"
@@ -12,18 +11,18 @@ int main(int argc, char *argv[])
     (void)argv;
 
     /*
-     * Inicializa os serviços RPC necessários ao controle.
+     * Inicializa RPC.
      */
     SifInitRpc(0);
 
     /*
-     * Inicializa tela.
+     * Inicializa a tela.
      */
     init_scr();
     scr_clear();
 
     /*
-     * Inicializa controle.
+     * Inicializa o controle.
      */
     input_init();
 
@@ -34,18 +33,16 @@ int main(int argc, char *argv[])
 
     /*
      * Loop principal.
+     *
+     * Não usamos DelayThread porque algumas versões/
+     * configurações do PS2SDK não expõem essa função
+     * diretamente.
      */
     while (1)
     {
         input_update();
         ui_update();
         ui_render();
-
-        /*
-         * Pequena pausa para não ocupar 100% da EE.
-         * 1 tick = aproximadamente 1 microsegundo.
-         */
-        DelayThread(10000);
     }
 
     input_shutdown();
