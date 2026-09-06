@@ -5,7 +5,21 @@ EE_OBJS = \
 	src/ui.o \
 	src/input.o
 
-EE_LIBS = -ldebug -lpad -lc
+EE_INCS = \
+	-I$(PS2DEV)/gsKit/ee/gs/include \
+	-I$(PS2DEV)/gsKit/ee/dma/include \
+	-I$(PS2DEV)/gsKit/ee/toolkit/include
+
+EE_CFLAGS += $(EE_INCS)
+
+EE_LIBS = \
+	-L$(PS2DEV)/gsKit/lib \
+	-ldebug \
+	-lpad \
+	-lgskit_toolkit \
+	-lgskit \
+	-ldmakit \
+	-lc
 
 all: $(EE_BIN)
 
