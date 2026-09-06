@@ -4,70 +4,27 @@
 #include "ui.h"
 #include "input.h"
 
+#define SCREEN_MAIN   0
+#define SCREEN_GAMES  1
+#define SCREEN_NETWORK 2
+#define SCREEN_CONFIG 3
+
+#define MENU_COUNT 3
+
+static int screen = SCREEN_MAIN;
 static int selected = 0;
 static int needs_redraw = 1;
 
-static const char *menu_items[] =
+static const char *main_menu[] =
 {
     "JOGOS",
     "TESTE DE REDE",
     "CONFIGURACOES"
 };
 
-#define MENU_COUNT 3
-
-void ui_init(void)
-{
-    selected = 0;
-    needs_redraw = 1;
-}
-
-void ui_update(void)
-{
-    const InputState *in;
-
-    input_update();
-
-    in = input_get();
-
-    if (in->up)
-    {
-        if (selected > 0)
-            selected--;
-
-        needs_redraw = 1;
-    }
-
-    if (in->down)
-    {
-        if (selected < MENU_COUNT - 1)
-            selected++;
-
-        needs_redraw = 1;
-    }
-
-    /*
-     * X:
-     * por enquanto apenas confirma a opção.
-     *
-     * O teste real de rede será colocado na próxima etapa,
-     * depois que confirmarmos que o menu e o controle estão
-     * funcionando de forma estável.
-     */
-    if (in->cross)
-    {
-        needs_redraw = 1;
-    }
-}
-
-void ui_render(void)
+static void draw_main_menu(void)
 {
     int i;
-
-    if (!needs_redraw)
-        return;
-
-    scr_clear();
 
     scr_printf("========================================\n");
     scr_printf("              OPL NEXT\n");
@@ -78,16 +35,180 @@ void ui_render(void)
     for (i = 0; i < MENU_COUNT; i++)
     {
         if (i == selected)
-            scr_printf(" > %s\n", menu_items[i]);
+            scr_printf(" > %s\n", main_menu[i]);
         else
-            scr_printf("   %s\n", menu_items[i]);
+            scr_printf("   %s\n", main_menu[i]);
     }
 
     scr_printf("\n");
     scr_printf("----------------------------------------\n");
     scr_printf("CIMA/BAIXO : MOVER\n");
-    scr_printf("X          : SELECIONAR\n");
+    scr_printf("X          : ENTRAR\n");
+    scr_printf("O          : VOLTAR\n");
     scr_printf("----------------------------------------\n");
+}
+
+static void draw_games(void)
+{
+    scr_printf("========================================\n");
+    scr_printf("                 JOGOS\n");
+    scr_printf("========================================\n\n");
+
+    scr_printf("A lista de jogos sera adicionada\n");
+    scr_printf("na proxima etapa.\n\n");
+
+    scr_printf("Rede SMB planejada:\n");
+    scr_printf("Servidor: 192.168.1.8\n");
+    scr_printf("Share:    ps2\n");
+    scr_printf("Pasta:    DVD\n\n");
+
+    scr_printf("----------------------------------------\n");
+    scr_printf("O : VOLTAR\n");
+    scr_printf("----------------------------------------\n");
+}
+
+static void draw_network(void)
+{
+    scr_printf("========================================\n");
+    scr_printf("             TESTE DE REDE\n");
+    scr_printf("========================================\n\n");
+
+    scr_printf("SERVIDOR DE TESTE\n\n");
+
+    scr_printf("IP DO PC:\n");
+    scr_printf("192.168.1.8\n\n");
+
+    scr_printf("COMPARTILHAMENTO SMB:\n");
+    scr_printf("ps2\n\n");
+
+    scr_printf("STATUS:\n");
+    scr_printf("AGUARDANDO TESTE\n\n");
+
+    scr_printf("----------------------------------------\n");
+    scr_printf("X : INICIAR TESTE\n");
+    scr_printf("O : VOLTAR\n");
+    scr_printf("----------------------------------------\n");
+}
+
+static void draw_config(void)
+{
+    scr_printf("========================================\n");
+    scr_printf("             CONFIGURACOES\n");
+    scr_printf("========================================\n\n");
+
+    scr_printf("CONFIGURACAO SMB\n\n");
+
+    scr_printf("Servidor : 192.168.1.8\n");
+    scr_printf("Share    : ps2\n");
+    scr_printf("Pasta    : DVD\n");
+    scr_printf("Porta    : 445\n\n");
+
+    scr_printf("Modo de teste:\n");
+    scr_printf("Rede local\n\n");
+
+    scr_printf("----------------------------------------\n");
+    scr_printf("O : VOLTAR\n");
+    scr_printf("----------------------------------------\n");
+}
+
+void ui_init(void)
+{
+    screen = SCREEN_MAIN;
+    selected = 0;
+    needs_redraw = 1;
+}
+
+void ui_update(void)
+{
+    const InputState *in;
+
+    in = input_get();
+
+    /*
+     * MENU PRINCIPAL
+     */
+    if (screen == SCREEN_MAIN)
+    {
+        if (in->up)
+        {
+            if (selected > 0)
+                selected--;
+
+            needs_redraw = 1;
+        }
+
+        if (in->down)
+        {
+            if (selected < MENU_COUNT - 1)
+                selected++;
+
+            needs_redraw = 1;
+        }
+
+        if (in->cross)
+        {
+            if (selected == 0)
+            {
+                screen = SCREEN_GAMES;
+            }
+            else if (selected == 1)
+            {
+                screen = SCREEN_NETWORK;
+            }
+            else if (selected == 2)
+            {
+                screen = SCREEN_CONFIG;
+            }
+
+            needs_redraw = 1;
+        }
+    }
+
+    /*
+     * TELAS INTERNAS
+     */
+    else
+    {
+        if (in->circle)
+        {
+            screen = SCREEN_MAIN;
+            needs_redraw = 1;
+        }
+
+        /*
+         * START também volta ao menu principal.
+         */
+        if (in->start)
+        {
+            screen = SCREEN_MAIN;
+            needs_redraw = 1;
+        }
+    }
+}
+
+void ui_render(void)
+{
+    if (!needs_redraw)
+        return;
+
+    scr_clear();
+
+    if (screen == SCREEN_MAIN)
+    {
+        draw_main_menu();
+    }
+    else if (screen == SCREEN_GAMES)
+    {
+        draw_games();
+    }
+    else if (screen == SCREEN_NETWORK)
+    {
+        draw_network();
+    }
+    else if (screen == SCREEN_CONFIG)
+    {
+        draw_config();
+    }
 
     needs_redraw = 0;
 }
