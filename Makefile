@@ -6,14 +6,12 @@ EE_OBJS = \
 	src/input.o
 
 EE_INCS = \
-	-I$(PS2DEV)/gsKit/ee/gs/include \
-	-I$(PS2DEV)/gsKit/ee/dma/include \
-	-I$(PS2DEV)/gsKit/ee/toolkit/include
+	-I$(GSKIT)/include
 
 EE_CFLAGS += $(EE_INCS)
 
 EE_LIBS = \
-	-L$(PS2DEV)/gsKit/lib \
+	-L$(GSKIT)/lib \
 	-ldebug \
 	-lpad \
 	-lgskit_toolkit \
