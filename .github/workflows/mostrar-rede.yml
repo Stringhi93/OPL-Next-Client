@@ -1,0 +1,28 @@
+name: Mostrar exemplo de rede PS2SDK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mostrar:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/ps2dev/ps2dev:latest
+
+    steps:
+      - name: Mostrar Makefile
+        shell: sh
+        run: |
+          echo "========================================"
+          echo "MAKEFILE TCPIP-BASIC"
+          echo "========================================"
+          cat /usr/local/ps2dev/ps2sdk/samples/network/tcpip-basic/Makefile
+
+      - name: Mostrar ps2ip.c
+        shell: sh
+        run: |
+          echo "========================================"
+          echo "PS2IP.C TCPIP-BASIC"
+          echo "========================================"
+          cat /usr/local/ps2dev/ps2sdk/samples/network/tcpip-basic/ps2ip.c
