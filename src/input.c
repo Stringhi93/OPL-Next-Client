@@ -5,77 +5,56 @@
 
 #include <kernel.h>
 #include <sifrpc.h>
+#include <debug.h>
 #include <libpad.h>
 
-#define PAD_PORT        0
-#define PAD_SLOT        0
+#define PAD_PORT 0
+#define PAD_SLOT 0
 
 static int initialized = 0;
-static unsigned int old_buttons = 0;
-static unsigned int current_buttons = 0;
+static unsigned int old_buttons = 0xFFFF;
+static unsigned int current_buttons = 0xFFFF;
 
 static char padBuf[256] __attribute__((aligned(64)));
-
-static int pad_read(void)
-{
-    struct padButtonStatus buttons;
-
-    int state;
-
-    state = padGetState(PAD_PORT, PAD_SLOT);
-
-    if (state != PAD_STATE_STABLE &&
-        state != PAD_STATE_FINDCTP1)
-    {
-        return 0;
-    }
-
-    if (padRead(PAD_PORT, PAD_SLOT, &buttons) <= 0)
-    {
-        return 0;
-    }
-
-    current_buttons =
-        ((unsigned int)buttons.btns[0] << 8) |
-        (unsigned int)buttons.btns[1];
-
-    return 1;
-}
 
 void input_init(void)
 {
     if (initialized)
         return;
 
-    SifInitRpc(0);
+    padInit(0);
 
     memset(padBuf, 0, sizeof(padBuf));
 
-    padInit(0);
-
     if (padPortOpen(PAD_PORT, PAD_SLOT, padBuf) == 0)
     {
-        scr_printf("INPUT: erro ao abrir controle\n");
-        initialized = 0;
+        scr_printf("INPUT: ERRO AO ABRIR CONTROLE\n");
         return;
     }
 
     initialized = 1;
 
-    old_buttons = 0;
-    current_buttons = 0;
+    old_buttons = 0xFFFF;
+    current_buttons = 0xFFFF;
 
     scr_printf("INPUT: OK\n");
 }
 
 void input_update(void)
 {
+    struct padButtonStatus status;
+
     if (!initialized)
         return;
 
     old_buttons = current_buttons;
 
-    pad_read();
+    if (padRead(PAD_PORT, PAD_SLOT, &status) <= 0)
+        return;
+
+    current_buttons =
+        ((unsigned int)status.btns[0] << 8) |
+        (unsigned int)status.btns[1];
 }
 
 int input_pressed(int button)
@@ -124,22 +103,15 @@ int input_pressed(int button)
     }
 
     /*
-     * libpad usa bits ativos em 0.
-     * Detectamos aqui a transicao:
-     * botao nao pressionado -> pressionado.
+     * Os botoes da libpad sao ativos em nivel baixo.
+     *
+     * Portanto:
+     * 0 = pressionado
+     * 1 = solto
      */
+
     if ((current_buttons & mask) == 0 &&
         (old_buttons & mask) != 0)
-    {
-        return 1;
-    }
-
-    /*
-     * Na primeira leitura, permite detectar
-     * um botao que ja esteja pressionado.
-     */
-    if (old_buttons == 0 &&
-        (current_buttons & mask) == 0)
     {
         return 1;
     }
@@ -156,6 +128,7 @@ void input_shutdown(void)
     padEnd();
 
     initialized = 0;
-    old_buttons = 0;
-    current_buttons = 0;
+
+    old_buttons = 0xFFFF;
+    current_buttons = 0xFFFF;
 }
