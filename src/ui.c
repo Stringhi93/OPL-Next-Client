@@ -30,14 +30,14 @@ static void draw_main_menu(void)
                menu_selected == 2 ? ">" : " ");
 
     scr_printf("\n");
-    scr_printf("Use UP/DOWN para navegar\n");
-    scr_printf("X para selecionar\n");
+    scr_printf("UP/DOWN: Navegar\n");
+    scr_printf("X: Selecionar\n");
 }
 
 static void draw_network(void)
 {
     scr_printf("========================================\n");
-    scr_printf("              REDE\n");
+    scr_printf("                  REDE\n");
     scr_printf("========================================\n");
     scr_printf("\n");
 
@@ -65,9 +65,14 @@ static void draw_network(void)
     {
         scr_printf("SERVIDOR: SEM LINK\n");
     }
+    else if (network_result == -3)
+    {
+        scr_printf("SERVIDOR: ERRO SOCKET\n");
+    }
 
     scr_printf("\n");
-    scr_printf("Pressione CIRCULO para voltar\n");
+    scr_printf("X: Testar servidor\n");
+    scr_printf("O: Voltar\n");
 }
 
 void ui_init(void)
@@ -79,33 +84,37 @@ void ui_init(void)
 void ui_update(void)
 {
     /*
-     * Navegacao simples.
-     *
-     * Se o seu input.c usar nomes diferentes para os botoes,
-     * ajuste somente esta parte.
+     * Menu principal.
      */
 
-    if (input_pressed(PAD_UP))
+    if (input_pressed(INPUT_UP))
     {
         if (menu_selected > 0)
             menu_selected--;
     }
 
-    if (input_pressed(PAD_DOWN))
+    if (input_pressed(INPUT_DOWN))
     {
         if (menu_selected < 2)
             menu_selected++;
     }
 
-    if (input_pressed(PAD_CROSS))
+    /*
+     * Selecionar.
+     */
+
+    if (input_pressed(INPUT_CROSS))
     {
         if (menu_selected == 1)
         {
             /*
-             * Teste do servidor.
+             * Teste inicial do servidor.
              *
-             * Troque o IP/porta posteriormente pelo servidor
-             * que o OPL Next Client realmente vai utilizar.
+             * PC:
+             * 192.168.1.8
+             *
+             * Porta:
+             * 21
              */
             network_result =
                 network_test_server("192.168.1.8", 21);
@@ -118,7 +127,11 @@ void ui_render(void)
     scr_clear();
 
     if (menu_selected == 1)
+    {
         draw_network();
+    }
     else
+    {
         draw_main_menu();
+    }
 }
