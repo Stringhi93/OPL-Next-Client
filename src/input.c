@@ -12,6 +12,7 @@
 #define PAD_SLOT 0
 
 static int initialized = 0;
+
 static unsigned int old_buttons = 0xFFFF;
 static unsigned int current_buttons = 0xFFFF;
 
@@ -22,10 +23,16 @@ void input_init(void)
     if (initialized)
         return;
 
+    /*
+     * Inicializa o sistema de controle.
+     */
     padInit(0);
 
     memset(padBuf, 0, sizeof(padBuf));
 
+    /*
+     * Abre o controle na porta 0, slot 0.
+     */
     if (padPortOpen(PAD_PORT, PAD_SLOT, padBuf) == 0)
     {
         scr_printf("INPUT: ERRO AO ABRIR CONTROLE\n");
@@ -47,14 +54,22 @@ void input_update(void)
     if (!initialized)
         return;
 
+    /*
+     * Guarda o estado anterior.
+     */
     old_buttons = current_buttons;
 
+    /*
+     * Lê o estado atual do controle.
+     */
     if (padRead(PAD_PORT, PAD_SLOT, &status) <= 0)
         return;
 
-    current_buttons =
-        ((unsigned int)status.btns[0] << 8) |
-        (unsigned int)status.btns[1];
+    /*
+     * No PS2SDK usado pelo projeto, btns é um
+     * valor de 16 bits, e não um array.
+     */
+    current_buttons = status.btns;
 }
 
 int input_pressed(int button)
@@ -103,13 +118,16 @@ int input_pressed(int button)
     }
 
     /*
-     * Os botoes da libpad sao ativos em nivel baixo.
+     * Os botoes do DualShock usam logica ativa em 0:
      *
-     * Portanto:
      * 0 = pressionado
      * 1 = solto
+     *
+     * Detecta somente a transicao:
+     *
+     * anterior = solto
+     * atual    = pressionado
      */
-
     if ((current_buttons & mask) == 0 &&
         (old_buttons & mask) != 0)
     {
