@@ -13,7 +13,6 @@
 
 static int initialized = 0;
 
-static unsigned int old_buttons = 0xFFFF;
 static unsigned int current_buttons = 0xFFFF;
 
 static char padBuf[256] __attribute__((aligned(64)));
@@ -47,7 +46,7 @@ void input_init(void)
     );
 
     /*
-     * Abre porta 0 / slot 0.
+     * Abre controle na porta 0, slot 0.
      */
     ret = padPortOpen(
         PAD_PORT,
@@ -57,17 +56,14 @@ void input_init(void)
 
     if (ret == 0)
     {
-        scr_printf("INPUT: controle nao encontrado\n");
+        scr_printf("INPUT: CONTROLE NAO ENCONTRADO\n");
         return;
     }
 
     scr_printf("INPUT: aguardando controle...\n");
 
     /*
-     * Aguarda o controle ser detectado.
-     *
-     * Nao usamos DelayThread(), pois algumas versoes
-     * do PS2SDK nao expoem essa funcao.
+     * Aguarda o controle ficar estavel.
      */
     timeout = 0;
 
@@ -95,15 +91,11 @@ void input_init(void)
             return;
         }
 
-        /*
-         * Evita ficar preso para sempre se nao houver
-         * um controle funcional.
-         */
         timeout++;
 
         if (timeout > 5000000)
         {
-            scr_printf("INPUT: timeout aguardando controle\n");
+            scr_printf("INPUT: TIMEOUT\n");
 
             padPortClose(
                 PAD_PORT,
@@ -116,9 +108,10 @@ void input_init(void)
         }
     }
 
+    /*
+     * Controle encontrado.
+     */
     initialized = 1;
-
-    old_buttons = 0xFFFF;
     current_buttons = 0xFFFF;
 
     scr_printf("INPUT: CONTROLE OK\n");
@@ -128,12 +121,13 @@ void input_update(void)
 {
     struct padButtonStatus status;
     int state;
+    int result;
 
     if (!initialized)
         return;
 
     /*
-     * Verifica o estado do controle.
+     * Verifica se o controle continua conectado.
      */
     state = padGetState(
         PAD_PORT,
@@ -144,24 +138,19 @@ void input_update(void)
         return;
 
     /*
-     * Guarda o estado anterior.
-     */
-    old_buttons = current_buttons;
-
-    /*
      * Le os botoes.
      */
-    if (padRead(
-            PAD_PORT,
-            PAD_SLOT,
-            &status
-        ) <= 0)
-    {
+    result = padRead(
+        PAD_PORT,
+        PAD_SLOT,
+        &status
+    );
+
+    if (result <= 0)
         return;
-    }
 
     /*
-     * btns e um valor de 16 bits.
+     * btns:
      *
      * 0 = pressionado
      * 1 = solto
@@ -215,14 +204,15 @@ int input_pressed(int button)
     }
 
     /*
-     * Detecta somente o momento em que o botao
-     * passa de solto para pressionado.
+     * Retorna 1 enquanto o botao estiver pressionado.
+     *
+     * No DualShock:
+     *
+     * 0 = pressionado
+     * 1 = solto
      */
-    if ((current_buttons & mask) == 0 &&
-        (old_buttons & mask) != 0)
-    {
+    if ((current_buttons & mask) == 0)
         return 1;
-    }
 
     return 0;
 }
@@ -240,8 +230,6 @@ void input_shutdown(void)
     padEnd();
 
     initialized = 0;
-
-    old_buttons = 0xFFFF;
     current_buttons = 0xFFFF;
 
     scr_printf("INPUT: desligado\n");
