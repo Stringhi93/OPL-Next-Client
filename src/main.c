@@ -38,7 +38,9 @@ int main(int argc, char *argv[])
 
         while (1)
         {
-            DelayThread(10000);
+            /*
+             * Mantem o ELF executando.
+             */
         }
 
         return 1;
@@ -62,17 +64,10 @@ int main(int argc, char *argv[])
         ui_update();
 
         ui_render();
-
-        /*
-         * Pequena pausa para evitar uso desnecessario
-         * da CPU enquanto aguardamos o proximo frame.
-         */
-        DelayThread(16000);
     }
 
     /*
-     * Nunca deve chegar aqui, mas mantemos a
-     * finalizacao organizada.
+     * Nunca deve chegar aqui.
      */
     ui_shutdown();
     input_shutdown();
